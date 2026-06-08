@@ -1,0 +1,13 @@
+noureddine:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost          # or 'postgres' if running inside Docker network
+      port: 5432
+      user: noureddine_user
+      password: change_me_postgres
+      dbname: noureddine
+      schema: public           # dbt will use +schema overrides from dbt_project.yml
+      threads: 4
+      keepalives_idle: 0
