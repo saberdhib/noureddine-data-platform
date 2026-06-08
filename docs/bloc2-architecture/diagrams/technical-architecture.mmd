@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph Host["Host machine (localhost)"]
+        subgraph DockerNet["Docker bridge network: noureddine_net"]
+
+            PG["🐘 postgres:16\nnoureddine_postgres\nports: 5432\nvolume: postgres_data\nschemas: oltp · bronze · silver · gold · airflow"]
+
+            MINIO["🪣 minio/minio\nnoureddine_minio\nports: 9000 (API), 9001 (console)\nvolume: minio_data\nbuckets: bronze · silver · gold"]
+
+            MCINIT["⚙️ minio/mc\nnoureddine_minio_init\none-shot: creates buckets\nexit 0 when done"]
+
+            PGADMIN["🖥️ dpage/pgadmin4:8\nnoureddine_pgadmin\nport: 5050\npre-registered server: postgres"]
+
+            AIRFLOW["🌬️ apache/airflow:2.9.1\nnoureddine_airflow\nport: 8080\nmounts: dags/ (read-only)\nmetadata DB: postgres/airflow\nexecutor: LocalExecutor"]
+        end
+
+        CLI["User\nbrowser / psql / mc CLI"]
+    end
+
+    MCINIT -->|creates buckets| MINIO
+    PGADMIN -->|connects to DB| PG
+    AIRFLOW -->|metadata DB| PG
+    AIRFLOW -->|reads DAGs| DAGSvol[("../dags/ (volume)")]
+
+    CLI -->|:5050| PGADMIN
+    CLI -->|:9001 console| MINIO
+    CLI -->|:8080 UI| AIRFLOW
+    CLI -->|:5432 psql| PG
+    CLI -->|:9000 S3 API| MINIO

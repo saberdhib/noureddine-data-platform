@@ -1,0 +1,50 @@
+flowchart LR
+    subgraph Sources["External Sources"]
+        S1[Shopify API\norders · products · inventory]
+        S2[Marketing APIs\nInstagram · TikTok · affiliate]
+        S3[RAG logs\nquestions · intents]
+        S4[Calendar events\nRamadan · Eid · Nikah · BF]
+    end
+
+    subgraph Ingestion["Ingestion Layer\n(Airflow — Bloc 3)"]
+        I1[DAG: ingest_shopify]
+        I2[DAG: ingest_marketing]
+        I3[DAG: dbt_run]
+        I4[DAG: data_quality]
+    end
+
+    subgraph Lake["Data Lake — MinIO"]
+        B1[(bronze\nbucket)]
+        B2[(silver\nbucket)]
+        B3[(gold\nbucket)]
+    end
+
+    subgraph DWH["Data Warehouse — PostgreSQL"]
+        P1[(schema: oltp\nraw transactions)]
+        P2[(schema: bronze\nstaging views)]
+        P3[(schema: silver\nclean tables)]
+        P4[(schema: gold\nstar schema)]
+    end
+
+    subgraph Transform["Transformation — dbt"]
+        T1[bronze models\nraw views]
+        T2[silver models\nclean + typed]
+        T3[gold models\nfact + dims]
+    end
+
+    subgraph Consume["Consumption"]
+        C1[pgAdmin\nSQL · ops dashboard]
+        C2[FastAPI\nprediction API\nBloc 4]
+        C3[Evidently\nML monitoring\nBloc 4]
+    end
+
+    S1 & S2 & S3 --> I1 & I2
+    S4 --> P1
+    I1 & I2 --> B1
+    B1 --> T1 --> B2 --> T2 --> B3
+    T1 --> P2 --> T2 --> P3 --> T3 --> P4
+    T3 --> B3
+    I3 --> T1 & T2 & T3
+    I4 --> P3
+    P4 --> C1 & C2 & C3
+    B3 --> C2 & C3

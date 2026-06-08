@@ -1,0 +1,96 @@
+erDiagram
+    categories {
+        UUID category_id PK
+        VARCHAR category_name
+        TIMESTAMPTZ created_at
+    }
+    products {
+        UUID product_id PK
+        VARCHAR sku
+        VARCHAR product_name
+        UUID category_id FK
+        NUMERIC price_eur
+        NUMERIC cost_eur
+        VARCHAR seasonality_tag
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+    inventory {
+        UUID inventory_id PK
+        UUID product_id FK
+        INTEGER stock_quantity
+        INTEGER reorder_threshold
+        TIMESTAMPTZ last_updated
+    }
+    customers {
+        UUID customer_id PK
+        VARCHAR email
+        VARCHAR first_name
+        VARCHAR last_name
+        VARCHAR country
+        VARCHAR city
+        BOOLEAN consent_marketing
+        VARCHAR acquisition_source
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+    orders {
+        UUID order_id PK
+        UUID customer_id FK
+        TIMESTAMPTZ order_date
+        NUMERIC total_amount
+        NUMERIC discount_amount
+        NUMERIC shipping_cost
+        VARCHAR payment_status
+        VARCHAR order_status
+        VARCHAR acquisition_channel
+        TIMESTAMPTZ created_at
+    }
+    order_items {
+        UUID order_item_id PK
+        UUID order_id FK
+        UUID product_id FK
+        INTEGER quantity
+        NUMERIC unit_price
+        NUMERIC line_total
+    }
+    shipments {
+        UUID shipment_id PK
+        UUID order_id FK
+        VARCHAR carrier
+        VARCHAR tracking_number
+        DATE shipping_date
+        DATE delivery_date
+        VARCHAR shipment_status
+    }
+    marketing_events {
+        UUID event_id PK
+        UUID customer_id FK
+        VARCHAR source
+        VARCHAR campaign_name
+        VARCHAR event_type
+        TIMESTAMPTZ event_timestamp
+    }
+    rag_conversations {
+        UUID conversation_id PK
+        UUID customer_id FK
+        TEXT question
+        VARCHAR intent
+        TIMESTAMPTZ conversation_timestamp
+    }
+    calendar_events {
+        UUID calendar_event_id PK
+        VARCHAR event_name
+        VARCHAR event_type
+        DATE start_date
+        DATE end_date
+    }
+
+    categories ||--o{ products : "has"
+    products ||--o| inventory : "stocked_in"
+    products ||--o{ order_items : "ordered_as"
+    customers ||--o{ orders : "places"
+    orders ||--o{ order_items : "contains"
+    orders ||--o{ shipments : "dispatched_via"
+    customers ||--o{ marketing_events : "triggers"
+    customers ||--o{ rag_conversations : "initiates"

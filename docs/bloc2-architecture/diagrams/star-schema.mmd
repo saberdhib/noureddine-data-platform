@@ -1,0 +1,62 @@
+erDiagram
+    dim_customer {
+        BIGINT customer_key PK
+        UUID customer_id
+        VARCHAR country
+        VARCHAR city
+        VARCHAR segment
+        VARCHAR acquisition_source
+        DATE valid_from
+        DATE valid_to
+    }
+    dim_product {
+        BIGINT product_key PK
+        UUID product_id
+        VARCHAR sku
+        VARCHAR product_name
+        VARCHAR category
+        VARCHAR seasonality_tag
+        DATE valid_from
+        DATE valid_to
+    }
+    dim_date {
+        BIGINT date_key PK
+        DATE date
+        SMALLINT day
+        SMALLINT week
+        SMALLINT month
+        SMALLINT quarter
+        SMALLINT year
+        BOOLEAN is_weekend
+    }
+    dim_channel {
+        BIGINT channel_key PK
+        VARCHAR channel_name
+    }
+    dim_calendar_event {
+        BIGINT calendar_event_key PK
+        UUID calendar_event_id
+        VARCHAR event_name
+        VARCHAR event_type
+    }
+    fact_sales {
+        BIGINT sale_key PK
+        UUID order_id
+        UUID order_item_id
+        BIGINT customer_key FK
+        BIGINT product_key FK
+        BIGINT date_key FK
+        BIGINT channel_key FK
+        BIGINT calendar_event_key FK
+        INTEGER quantity
+        NUMERIC revenue
+        NUMERIC discount
+        NUMERIC shipping_cost
+        NUMERIC margin
+    }
+
+    dim_customer ||--o{ fact_sales : "sold_to"
+    dim_product  ||--o{ fact_sales : "product_sold"
+    dim_date     ||--o{ fact_sales : "on_date"
+    dim_channel  ||--o{ fact_sales : "via_channel"
+    dim_calendar_event |o--o{ fact_sales : "during_event"

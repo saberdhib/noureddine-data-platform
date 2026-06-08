@@ -1,0 +1,20 @@
+flowchart TD
+    A([User]) -->|arrives via| B{Acquisition channel}
+    B -->|Instagram / TikTok| C[Social / Paid Ad]
+    B -->|Affiliate link| D[Affiliate Partner]
+    B -->|QR code| E[Physical / Event]
+    B -->|Web / AI search| F[SEO / ChatGPT / Claude]
+    C & D & E & F --> G[Shopify website\nProducts · Cart · Stock · Tracking]
+    G --> H{Engages RAG assistant?}
+    H -->|Yes| I[RAG assistant\nStyle advice · Questionnaire · Virtual try-on]
+    H -->|No| J
+    I --> J[Purchase]
+    J --> K[Back-office\nScan product · Register customer · Assign code]
+    K --> L[Shipping\nCarrier label · Tracking]
+    L --> M[Customer registry\nConfirmation + tracking email]
+    M --> N{Post-sale}
+    N -->|Marketing| O[Personalised advice\nNew arrivals · Loyalty programme]
+    N -->|Analytics| P[(Data Platform\nOrders · RAG logs · Marketing events)]
+    P --> Q[Dashboard\nRevenue · Forecast · Stock alerts]
+    P --> R[ML Forecasting\nStock & demand planning]
+    Q & R --> S[Operations team\nStock decisions · Campaign planning]
