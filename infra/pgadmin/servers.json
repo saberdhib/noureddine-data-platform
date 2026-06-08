@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "NOUREDDINE — PostgreSQL",
+      "Group": "NOUREDDINE",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "noureddine",
+      "Username": "noureddine_user",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}
