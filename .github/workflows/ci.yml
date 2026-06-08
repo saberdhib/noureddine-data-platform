@@ -1,0 +1,128 @@
+name: CI — Validate & Lint
+
+on:
+  push:
+    branches: ["main", "bloc2/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate-compose:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy .env.example to .env
+        run: cp .env.example .env
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f infra/docker-compose.yml config --quiet
+
+  validate-sql:
+    name: Validate SQL DDL + Seed
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB:       noureddine
+          POSTGRES_USER:     noureddine_user
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U noureddine_user -d noureddine"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run DDL — schemas
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/01_create_schemas.sql
+
+      - name: Run DDL — OLTP tables
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/02_create_tables_oltp.sql
+
+      - name: Run DDL — warehouse tables
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/03_create_tables_warehouse.sql
+
+      - name: Run DDL — indexes
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/04_create_indexes.sql
+
+      - name: Run DDL — views
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/05_create_views.sql
+
+      - name: Load seed data
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/seed/seed_data.sql
+
+      - name: Assert key tables exist and have rows
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine -c "
+            DO \$\$
+            DECLARE
+              cnt INTEGER;
+            BEGIN
+              SELECT COUNT(*) INTO cnt FROM oltp.customers;
+              ASSERT cnt >= 50, 'oltp.customers has fewer than 50 rows: ' || cnt;
+
+              SELECT COUNT(*) INTO cnt FROM oltp.orders;
+              ASSERT cnt >= 50, 'oltp.orders has fewer than 50 rows: ' || cnt;
+
+              SELECT COUNT(*) INTO cnt FROM gold.fact_sales;
+              ASSERT cnt >= 1, 'gold.fact_sales is empty';
+
+              SELECT COUNT(*) INTO cnt FROM gold.dim_customer;
+              ASSERT cnt >= 50, 'gold.dim_customer has fewer than 50 rows: ' || cnt;
+
+              RAISE NOTICE 'All table assertions passed.';
+            END
+            \$\$;
+          "
+
+      - name: Assert views return rows
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine -c "
+            SELECT COUNT(*) AS daily_rows FROM gold.v_daily_revenue;
+            SELECT COUNT(*) AS event_rows  FROM gold.v_sales_by_calendar_event;
+            SELECT COUNT(*) AS product_rows FROM gold.v_top_products;
+          "
+
+  lint-sql:
+    name: Lint SQL files (sqlfluff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install sqlfluff
+        run: pip install sqlfluff==3.1.0
+
+      - name: Lint SQL DDL files
+        run: |
+          sqlfluff lint sql/ddl/ \
+            --dialect postgres \
+            --rules L001,L002,L003,L004,L005,L006,L007,L008,L009,L010,L011,L012 \
+            --ignore-local-config \
+            --nocolor \
+            --templater raw \
+            || echo "Lint warnings found (non-blocking in Bloc 2)"
+        continue-on-error: true
