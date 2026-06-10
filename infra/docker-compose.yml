@@ -54,7 +54,7 @@ services:
   # MinIO — S3-compatible object storage (Data Lake: bronze/silver/gold)
   # ---------------------------------------------------------------------------
   minio:
-    image: minio/minio:RELEASE.2024-05-01T01-11-10Z
+    image: minio/minio:latest
     container_name: noureddine_minio
     restart: unless-stopped
     command: server /data --console-address ":${MINIO_CONSOLE_PORT:-9001}"
@@ -79,7 +79,7 @@ services:
   # MinIO Init — one-shot container that creates bronze/silver/gold buckets
   # ---------------------------------------------------------------------------
   minio-init:
-    image: minio/mc:RELEASE.2024-05-03T06-23-13Z
+    image: minio/mc:latest
     container_name: noureddine_minio_init
     depends_on:
       minio:
