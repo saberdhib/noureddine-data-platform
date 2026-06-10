@@ -107,7 +107,7 @@ mc_cmd() {
         mc "$@" 2>/dev/null || \
     docker run --rm --network noureddine_net \
         -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:${MINIO_API_PORT}" \
-        minio/mc:RELEASE.2024-05-03T06-23-13Z "$@" 2>/dev/null
+        minio/mc:latest "$@" 2>/dev/null
 }
 
 for bucket in bronze silver gold; do
