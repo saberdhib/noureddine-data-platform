@@ -186,6 +186,33 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
+  # Data simulator (Bloc 3) — single stateful catch-up process.
+  # Bootstraps ~3y of history on first run, then catches up to NOW() every
+  # CATCH_UP_INTERVAL_SECONDS. Writes to oltp + bronze (MinIO).
+  # ---------------------------------------------------------------------------
+  simulator:
+    build:
+      context: ..
+      dockerfile: simulator/Dockerfile
+    image: noureddine/simulator:bloc3
+    container_name: noureddine_simulator
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-noureddine_user}:${POSTGRES_PASSWORD:-change_me_postgres}@postgres:5432/${POSTGRES_DB:-noureddine}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio_admin}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change_me_minio}
+      BRONZE_BUCKET: bronze
+      CATCH_UP_INTERVAL_SECONDS: ${CATCH_UP_INTERVAL_SECONDS:-600}
+    networks:
+      - noureddine_net
+
+  # ---------------------------------------------------------------------------
   # FastAPI — model serving (Bloc 4). Loads ml/models/current.pkl (read-only),
   # reads gold for forecast history. API key required on /predict and /retrain.
   # ---------------------------------------------------------------------------

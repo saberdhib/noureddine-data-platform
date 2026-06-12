@@ -14,18 +14,24 @@ Simulator → OLTP + Bronze → Airflow (every 10 min) → dbt build → Silver 
 
 ### 1. Data Simulator
 
-Two modes (env `SIM_MODE`):
+**One process with stateful catch-up** — `python -m simulator.run` (no more `SIM_MODE`):
 
-- **`history`**: one-shot backfill of ~3 years (2023-07-01 → today). Runs `generate_history.py --reset`
-  which TRUNCATES all OLTP business tables (preserving `categories` and `calendar_events`) then
-  generates ~15k customers, ~300 products, ~20k orders distributed by the Islamic-calendar
-  seasonality model.
-- **`drip`**: continuous injection of 1–5 new orders every `DRIP_INTERVAL_SECONDS` seconds
-  (default 10). Uses today's date and current seasonality. Makes the demo "live" for the screencast.
+- **Bootstrap** (first run, empty `simulator.state`): upsert the fixed Islamic-calendar windows,
+  create reference customers/products/inventory, and backfill ~3 years (`NOW-3y → NOW`) using the
+  seasonality + growth + hour-of-day demand model.
+- **Catch-up** (every run after, every `CATCH_UP_INTERVAL_SECONDS`): generate only the missing
+  slice `(last_generated_at, NOW]`, then advance the watermark — so the warehouse is always current
+  and a restart resumes exactly where it left off.
 
-Both modes write to:
+State is a singleton row in `simulator.state` (`last_generated_at`, `bootstrap_completed`); the
+watermark is advanced in the same transaction as the writes. Order/line/shipment IDs are
+**deterministic per hour bucket** (`uuid5` + `ON CONFLICT DO NOTHING`), so an overlapping window is
+never duplicated. `--reset` truncates business tables + resets state, then re-bootstraps.
+
+Writes to:
 - **PostgreSQL `oltp` schema** — transactional records (customers, orders, order_items, shipments, etc.)
-- **MinIO `bronze` bucket** — raw JSON batch files (`orders/history/<date>/batch.json`)
+- **MinIO `bronze` bucket** — raw JSON, partitioned `orders/year=YYYY/month=MM/day=DD/batch.json`
+  (best-effort, fail-fast so it never blocks OLTP generation).
 
 ### 2. Seasonality Model
 
@@ -129,11 +135,10 @@ to avoid cost (zero-licence constraint, ADR 0008).
 # 1. Start the stack
 bash infra/scripts/up.sh
 
-# 2. Seed full history (runs once, then exits)
-SIM_MODE=history docker compose -f infra/docker-compose.yml --profile simulator up simulator
-
-# 3. Start drip mode (continuous)
-SIM_MODE=drip docker compose -f infra/docker-compose.yml --profile simulator up -d simulator
+# 2. Start the simulator (bootstraps ~3y on first run, then catches up to NOW
+#    every CATCH_UP_INTERVAL_SECONDS). One process — no SIM_MODE.
+docker compose -f infra/docker-compose.yml up -d simulator
+docker logs -f noureddine_simulator        # watch bootstrap / catch-up
 
 # 4. Trigger Airflow DAG or wait for schedule (every 10 min)
 # Open http://localhost:8080 → DAGs → ingest_orders → Trigger
