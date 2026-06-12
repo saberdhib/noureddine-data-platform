@@ -277,6 +277,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
       API_URL:           http://api:8000
       API_KEY:           ${API_KEY:-noureddine-dev-key}
+      # Optional LLM Stock Advisor (page 4); empty key -> feature stays disabled.
+      OPENAI_API_KEY:     ${OPENAI_API_KEY:-}
+      OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
     ports:
       - "${STREAMLIT_PORT:-8501}:8501"
     networks:

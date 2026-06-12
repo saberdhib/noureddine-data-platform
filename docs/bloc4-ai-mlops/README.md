@@ -90,7 +90,10 @@ A clean walk-through for the screencast. Run from the repo root.
 11. **Walk the 3 Streamlit pages.** Executive Dashboard (KPIs) → **Demand Forecast** ⭐ (J-90 history
     + J+30 forecast with confidence band and the **Islamic-calendar overlays** — Ramadan gold band,
     Eid al-Fitr dashed lines, Eid al-Adha in a distinct colour, Nikah-season band, Black Friday
-    marker) → Stock Pilot (days-of-cover + 🟢/🟠/🔴 restock signal).
+    marker) → Stock Pilot (days-of-cover + 🟢/🟠/🔴 restock signal) → **🤖 AI Advisor** (optional,
+    ADR-0015): a grounded OpenAI briefing that turns forecast + inventory + calendar into an
+    actionable restock plan in French. Disabled unless `OPENAI_API_KEY` is set; only category-level
+    aggregates are sent (no PII). The page shows the underlying data even without a key.
 12. **Force a drift breach.** Inject an anomalous row (SQL) or lower a threshold via env override
     (`DRIFT_THRESHOLD` / `MAPE_THRESHOLD`), re-run `monitor_model`, and show it firing
     `TriggerDagRunOperator` → `retrain_model` automatically. This closes the MLOps loop on camera.
