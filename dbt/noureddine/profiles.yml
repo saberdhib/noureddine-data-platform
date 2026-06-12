@@ -1,0 +1,17 @@
+# Committed profile so the Airflow ingest_orders DAG can run `dbt build`
+# (the DAG sets DBT_PROFILES_DIR to this directory). All values come from env
+# vars with Docker-network defaults; no secret literal is committed.
+# Local dev: copy profiles.yml.example or export POSTGRES_HOST=localhost.
+noureddine:
+  target: "{{ env_var('DBT_TARGET', 'prod') }}"
+  outputs:
+    prod:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'postgres') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      user: "{{ env_var('POSTGRES_USER', 'noureddine_user') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'change_me_postgres') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'noureddine') }}"
+      schema: public          # bare silver/gold via generate_schema_name macro
+      threads: 4
+      keepalives_idle: 0
