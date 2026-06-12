@@ -19,10 +19,10 @@ The PFE is split into **4 Blocs**, delivered sequentially in **one mono-repo**:
 
 | Bloc | Theme | Status |
 |------|-------|--------|
-| Bloc 1 | Data Governance (policy, RGPD, RACI, risks) | ✅ Done (Word + PPTX, in `/docs/bloc1`) |
-| Bloc 2 | Data Architecture (infra, warehouse schema, Docker) | ✅ Done (stack 100% green, pushed) |
-| Bloc 3 | Data Pipelines + data monitoring (simulator, Airflow, dbt, Elementary, Grafana) | 🟢 **CURRENT** |
-| Bloc 4 | AI / MLOps + business consumption (forecasting, FastAPI, CI/CD, Evidently, Streamlit) | ⏳ After |
+| Bloc 1 | Data Governance | ✅ Done (Word + PPTX, `/docs/bloc1`) |
+| Bloc 2 | Data Architecture | ✅ Done (stack green, pushed) |
+| Bloc 3 | Data Pipelines + monitoring | ✅ Done (simulator + Airflow + dbt + Elementary + Grafana, pushed) |
+| Bloc 4 | AI/MLOps + business consumption | 🟢 **CURRENT** |
 
 **Critical rule:** Build only the current Bloc's scope. Do NOT pre-build later Blocs. Leave clean, empty, well-named placeholders for future Blocs so the structure is ready but not filled.
 
@@ -240,48 +240,97 @@ A Bloc is done when:
 
 ---
 
-## 9. Bloc 3 Technical Decisions
+## 9. Bloc 4 — AI/MLOps Technical Decisions (all LOCKED — do not reopen)
 
-### Ingestion paradigm: micro-batch (locked — do not reopen)
-NOUREDDINE is an ~€8–9M SME. Pure streaming (Kafka/Kinesis) is disproportionate. We implement **micro-batch**:
-- A **data simulator** seeds the full history in one shot, THEN runs in continuous **"drip" mode**, injecting new orders every N seconds into `oltp` + raw files into MinIO `bronze`.
-- **Airflow** ingests on a short schedule (every 10 min, demo-tunable) and runs dbt transformations + tests.
-- ADR `0006-microbatch-over-streaming.md` justifies micro-batch vs streaming.
+### ML model: LightGBM with calendar features
+Target: **daily orders per category**. Granularity **category × day**, horizon **30 days**.
+- **Why LightGBM not Prophet**: explainable (SHAP), trained in seconds on laptop, performs well on
+  event-driven peaks, defensible vs Prophet in Q&A. ADR `0009-lightgbm-over-prophet.md`.
+- **Features (NO PII per DPIA #2)** — only aggregate, category-level, calendar-based:
+  - Calendar: `days_to_next_eid_fitr`, `days_to_next_eid_adha`, `days_to_ramadan_start`,
+    `days_to_black_friday`, `in_ramadan`, `in_pre_eid_window` (14d), `in_nikah_season`, `is_weekend`,
+    `day_of_week`, `month`, `week_of_year`, all derived from `oltp.calendar_events` (the SAME fixed
+    windows from Bloc 3 — never recompute Hijri dates).
+  - Lags per category: `lag_7`, `lag_14`, `lag_30`.
+  - Rolling means per category: `rolling_7d`, `rolling_30d`.
+  - Category as categorical feature (LightGBM native support).
+- **Split**: time-based, hold out last 30 days. Metrics: MAPE, sMAPE, RMSE per category + global.
+- **Explainability**: SHAP global summary plot saved to `ml/models/shap_summary.png` and embedded
+  in the model card (DPIA #2 commitment).
 
-### Fixed Islamic-calendar windows (reference data — NEVER compute or guess these)
-```
-Ramadan 2024:  Mar 11 – Apr 9   · Eid al-Fitr 2024: Apr 10 · Eid al-Adha 2024: Jun 16
-Ramadan 2025:  Mar 1  – Mar 30  · Eid al-Fitr 2025: Mar 31 · Eid al-Adha 2025: Jun 6
-Ramadan 2026:  Feb 18 – Mar 19  · Eid al-Fitr 2026: Mar 20 · Eid al-Adha 2026: May 27
-Pre-Eid peak window = 14 days before each Eid al-Fitr
-Nikah season:  Jun 1 – Aug 31 each year
-Black Friday:  last Friday of November
-```
-The simulator upserts these into `oltp.calendar_events` if missing.
+### Serving: FastAPI
+- Endpoints: `/health`, `/model-info`, `/predict` (POST: `category`, `horizon ≤ 30` → list of
+  `{date, prediction, lower, upper}`), `/retrain` (POST, admin).
+- **Auth**: API key via env var, header `X-API-Key` (governance P-03 spirit). `/predict` and
+  `/retrain` require the key; `/health` and `/model-info` are open.
+- OpenAPI docs at `/docs`. Container + compose service, internal port 8000.
+- **Streamlit must ONLY call FastAPI for predictions** — never load the model directly
+  (separation of concerns, mirrors a real deployment).
 
-### Demand model (multipliers × product category)
-- **Pre-Eid al-Fitr (14 days) ×4.0** — Qamis, GiftSet (the year's biggest peak)
-- **Ramadan ×2.5** — Grooming, Qamis, ReadyToWear
-- **Eid al-Adha ×2.8** — Suit, ReadyToWear, Accessory
-- **Nikah season ×2.2** — Suit, Accessory, LeatherGoods
-- **Black Friday ×3.2** — all categories
-- **Baseline ×1.0** the rest of the year
-- Plus: ±15% random noise, +~15%/year growth trend, weekend/payday uplift
+### Model monitoring: Evidently
+- **Drift report**: data drift on input features + target drift (actual vs predicted), weekly HTML.
+- **Performance**: MAPE/RMSE recomputed weekly on last 30 days actuals.
+- **Key metrics exported** to `monitoring.model_metrics` in Postgres → Grafana panel "Model Health"
+  (extending the Bloc 3 dashboard, not a new one).
+- **Thresholds** (env-configurable): `DRIFT_THRESHOLD=0.5`, `MAPE_THRESHOLD=0.30`. Breach → trigger
+  retrain DAG. ADR `0011-evidently-for-model-monitoring.md`.
 
-### Simulator reset behaviour (seed collision corrective)
-`generate_history.py --reset` (default in history mode): TRUNCATE all oltp business tables
-(`customers`, `orders`, `order_items`, `shipments`, `marketing_events`, `rag_conversations`,
-`inventory`, `products`) CASCADE before generating. Keep/refresh `categories` + `calendar_events`.
+### Retraining: dual-trigger
+- **Scheduled**: Airflow DAG `retrain_model`, weekly (Sundays 02:00).
+- **Drift-triggered**: DAG `monitor_model` (daily) runs Evidently → if thresholds breached →
+  triggers `retrain_model` via Airflow's `TriggerDagRunOperator`.
+- **Process**: extract gold.fact_sales → feature engineering → train LightGBM → validate on held-out
+  30d → IF new MAPE ≤ current MAPE × 1.05 THEN promote ELSE keep current and log "no-promotion".
+- **Model promotion is ATOMIC**: write to `ml/models/{name}_{timestamp}.pkl`, then swap symlink
+  `ml/models/current.pkl`. Never serve a half-written model.
+- Old versions kept (last 5) for rollback; rest gitignored.
 
-### Gold ownership: dbt is single source of truth from Bloc 3
-dbt mart models (`+materialized: table`, schema `gold`) own schema `gold`. The Bloc 2 gold DDL
-in `/sql` is annotated as superseded. ADR 0008.
+### Business app: Streamlit, 3 pages — BUSINESS ONLY
+Monitoring stays in Grafana. Clear separation.
+- **Page 1 — Executive Dashboard**: KPIs from gold (revenue, orders, AOV, top categories, top
+  channels), filterable date range.
+- **Page 2 — Demand Forecast** ⭐: chart category × day, **J-90 historical + J+30 prediction with
+  confidence interval**, **Islamic calendar overlays directly on the chart** — gold band for
+  Ramadan, vertical dashed line for each Eid al-Fitr, different colour for Eid al-Adha, lighter
+  band for Nikah season, marker for Black Friday. Category filter in sidebar. The signature view.
+- **Page 3 — Stock Pilot**: table per category — current inventory, predicted 30d demand, days
+  of cover remaining, restock signal (🟢 / 🟠 / 🔴 per env-configurable thresholds).
+- Uses Plotly (interactive, screencast-friendly). Calls FastAPI for forecasts. Read-only Postgres
+  connection for gold + inventory + calendar_events.
 
-### Tooling additions (Bloc 3)
-| Layer | Tool | Notes |
-|-------|------|-------|
-| Data simulator | Python (Faker + numpy) | `simulator/` — history + drip modes |
-| Transformation | dbt-postgres | `dbt/noureddine/models/staging/` + `marts/` |
-| Data quality | dbt tests + Elementary | generic + singular tests; HTML report via `edr report` |
-| Monitoring | Grafana + PostgreSQL datasource ONLY | `infra/grafana/` — no Prometheus |
-| Alerting | Airflow `on_failure_callback` | structured log + optional webhook; `FORCE_FAILURE=1` for demo |
+### Consigne structure mapping (corrective — same pattern as Bloc 3)
+Consigne expects `/notebooks /src /tests /models requirements.txt` (ML) AND
+`/api /k8s /monitoring /retrain Dockerfile .github/workflows/` (deploy). Repo mapping (in Bloc 4 README):
+- `/notebooks` → `ml/notebooks/`
+- `/src` → `ml/src/`
+- `/tests` → `ml/tests/` + `api/tests/`
+- `/models` → `ml/models/`
+- `requirements.txt` → per service (`ml/`, `api/`, `streamlit/`)
+- `/api` → `api/`
+- `/k8s` → **NOT IMPLEMENTED** — Docker Compose suffices for 30-FTE PME; K8s disproportionate
+  (ADR `0013-docker-compose-over-k8s.md`, consistent with the Bloc 2 ADR on no-K8s)
+- `/monitoring` → `monitoring/evidently/` (extending the existing Grafana setup from Bloc 3)
+- `/retrain` → `ml/retrain/` + `dags/retrain_model.py`
+- `Dockerfile` → per service
+- `.github/workflows/` → already exists, extended
+
+### Governance ties (Bloc 1 commitments respected)
+- **DPIA #2 (AI forecasting)**: no `customer_id`, no PII in features. Only aggregate per-category
+  demand. Model card published. SHAP for transparency. Human-in-the-loop via `/retrain` admin
+  endpoint + Streamlit being a decision-support tool (not auto-action).
+- **P-04 quality gates** (Bloc 3 dbt tests) guard the training data: model never trains if upstream
+  dbt tests are red — `retrain_model` DAG checks last `monitoring.pipeline_runs` status.
+
+### Definition of Done — Bloc 4
+- LightGBM trains on gold.fact_sales; SHAP summary generated; model card complete (DPIA #2).
+- `current.pkl` exists; promotion is atomic.
+- FastAPI `/predict` returns valid forecast for any (category, horizon ≤ 30); `/docs` works;
+  API key auth enforced on protected endpoints.
+- `retrain_model` DAG runs end-to-end (extract → train → validate → promote/hold) — green.
+- `monitor_model` DAG runs end-to-end (Evidently report → metrics in Postgres) — green.
+- Threshold breach in `monitor_model` triggers `retrain_model` — demonstrated in the demo.
+- Grafana "Model Health" panel shows drift score, MAPE, last training timestamp — live.
+- Streamlit: 3 pages working, calendar overlays visible on the Forecast page.
+- No PII in features (verified by a test).
+- CI extended: `ml-test`, `api-test`, `streamlit-smoke` — all green on `main`.
+- All committed + pushed; final summary printed with repo URL.

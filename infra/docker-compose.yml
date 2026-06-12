@@ -16,6 +16,17 @@ x-airflow-env: &airflow-env
   AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
   AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-change_me_airflow}
   AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@noureddine.com}
+  # Bloc 4: DB access for the ML/monitoring DAGs + drift thresholds.
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-noureddine}
+  POSTGRES_USER: ${POSTGRES_USER:-noureddine_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+  DRIFT_THRESHOLD: ${DRIFT_THRESHOLD:-0.5}
+  MAPE_THRESHOLD: ${MAPE_THRESHOLD:-0.30}
+  # Bloc 4: install the ML/monitoring deps into the Airflow image at startup
+  # so retrain_model / monitor_model tasks can run (laptop-friendly, no custom image).
+  _PIP_ADDITIONAL_REQUIREMENTS: "lightgbm pandas numpy scikit-learn shap scipy sqlalchemy psycopg2-binary joblib matplotlib pyarrow evidently"
 
 services:
 
@@ -146,6 +157,9 @@ services:
       - ../dags:/opt/airflow/dags:ro
       - ../dbt:/opt/airflow/dbt:ro
       - airflow_logs:/opt/airflow/logs
+      # Bloc 4: the ML package + monitoring code + shared models, importable by the DAGs.
+      - ../ml:/opt/airflow/ml
+      - ../monitoring:/opt/airflow/monitoring
     ports:
       - "${AIRFLOW_PORT:-8080}:8080"
     networks:
@@ -172,69 +186,103 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
-  # Data Simulator — Bloc 3 (SIM_MODE=history|drip)
-  # history: one-shot backfill of ~3 years data then exits
-  # drip:    continuous injection every DRIP_INTERVAL_SECONDS
+  # FastAPI — model serving (Bloc 4). Loads ml/models/current.pkl (read-only),
+  # reads gold for forecast history. API key required on /predict and /retrain.
   # ---------------------------------------------------------------------------
-  simulator:
+  api:
     build:
-      context: ../simulator
-      dockerfile: Dockerfile
-    container_name: noureddine_simulator
-    restart: "no"
+      context: ..
+      dockerfile: api/Dockerfile
+    image: noureddine/api:bloc4
+    container_name: noureddine_api
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
-      SIM_MODE: ${SIM_MODE:-history}
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-noureddine_user}:${POSTGRES_PASSWORD:-change_me_postgres}@postgres:5432/${POSTGRES_DB:-noureddine}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio_admin}
-      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change_me_minio}
-      BRONZE_BUCKET: bronze
-      DRIP_INTERVAL_SECONDS: ${DRIP_INTERVAL_SECONDS:-10}
-      SIM_N_CUSTOMERS: ${SIM_N_CUSTOMERS:-15000}
-      SIM_N_PRODUCTS: ${SIM_N_PRODUCTS:-300}
-      SIM_N_ORDERS: ${SIM_N_ORDERS:-20000}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB:       ${POSTGRES_DB:-noureddine}
+      POSTGRES_USER:     ${POSTGRES_USER:-noureddine_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+      API_KEY:           ${API_KEY:-noureddine-dev-key}
+    volumes:
+      # production model is mounted read-only (atomic promotion happens elsewhere)
+      - ../ml/models:/app/ml/models:ro
+    ports:
+      - "${API_PORT:-8000}:8000"
     networks:
       - noureddine_net
-    profiles:
-      - simulator
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ---------------------------------------------------------------------------
-  # Grafana — pipeline monitoring dashboards (Postgres datasource only, ADR 0008)
-  # In production AWS the equivalent would be CloudWatch; Grafana is free/self-hosted.
+  # Streamlit — business app (Bloc 4). Calls FastAPI for forecasts; read-only
+  # gold/inventory/calendar from Postgres. Business only (monitoring is Grafana).
+  # ---------------------------------------------------------------------------
+  streamlit:
+    build:
+      context: ..
+      dockerfile: streamlit/Dockerfile
+    image: noureddine/streamlit:bloc4
+    container_name: noureddine_streamlit
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB:       ${POSTGRES_DB:-noureddine}
+      POSTGRES_USER:     ${POSTGRES_USER:-noureddine_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+      API_URL:           http://api:8000
+      API_KEY:           ${API_KEY:-noureddine-dev-key}
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    networks:
+      - noureddine_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  # ---------------------------------------------------------------------------
+  # Grafana — observability (Bloc 3 pipeline health + Bloc 4 "Model Health").
+  # Datasource + dashboards provisioned from infra/grafana.
   # ---------------------------------------------------------------------------
   grafana:
-    image: grafana/grafana:10.4.2
+    image: grafana/grafana:11.1.0
     container_name: noureddine_grafana
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change_me_grafana}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_INSTALL_PLUGINS: ""
-      # Pass PG creds so datasource provisioning can interpolate them
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      POSTGRES_DB: ${POSTGRES_DB:-noureddine}
-      POSTGRES_USER: ${POSTGRES_USER:-noureddine_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      NOUREDDINE_DB_HOST: postgres
+      NOUREDDINE_DB_NAME:     ${POSTGRES_DB:-noureddine}
+      NOUREDDINE_DB_USER:     ${POSTGRES_USER:-noureddine_user}
+      NOUREDDINE_DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     networks:
       - noureddine_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health | grep -q ok"]
-      interval: 15s
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/health || exit 1"]
+      interval: 30s
       timeout: 10s
       retries: 5
       start_period: 20s

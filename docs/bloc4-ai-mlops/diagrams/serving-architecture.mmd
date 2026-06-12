@@ -1,0 +1,31 @@
+flowchart LR
+    subgraph Business["Business App — Streamlit (BUSINESS ONLY)"]
+        ST1[Page 1 — Executive Dashboard]
+        ST2[Page 2 — Demand Forecast\ncalendar overlays]
+        ST3[Page 3 — Stock Pilot\nrestock signals]
+    end
+
+    subgraph API["Serving — FastAPI (port 8000)"]
+        A0[/health · /model-info — open/]
+        A1[/predict — POST · X-API-Key/]
+        A2[/retrain — POST · admin · X-API-Key/]
+    end
+
+    subgraph Model["Model artefacts"]
+        M1[(current.pkl\nsymlink to latest promoted)]
+    end
+
+    subgraph DB["Postgres — read only"]
+        G1[(gold\nKPIs · inventory · calendar)]
+    end
+
+    ST2 -- forecast request --> A1
+    ST3 -- forecast request --> A1
+    A1 --> M1
+    A1 -- features --> G1
+    A2 --> M1
+    ST1 -- KPIs --> G1
+    ST3 -- inventory --> G1
+
+    note["Separation of concerns:\nStreamlit NEVER loads the model directly.\nAll predictions go through FastAPI."]
+    Business -.-> note

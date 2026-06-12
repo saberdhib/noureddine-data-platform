@@ -1,34 +1,43 @@
-# Grafana — Pipeline Monitoring
+# Grafana — Observability (Bloc 3 + Bloc 4)
 
-Grafana is provisioned automatically via `infra/grafana/provisioning/`.
+Grafana provides the platform's **operational** observability. It is provisioned
+automatically from this folder when the `grafana` compose service starts.
+
+```
+infra/grafana/
+├── provisioning/
+│   ├── datasources/postgres.yml      # NOUREDDINE-Postgres datasource (uid: noureddine_pg)
+│   └── dashboards/dashboards.yml     # loads JSON dashboards from /var/lib/grafana/dashboards
+├── dashboards/
+│   └── model_health.json             # Bloc 4 — "Model Health" dashboard
+└── README.md
+```
+
+## "Model Health" dashboard (Bloc 4)
+
+Queries `monitoring.model_metrics` and `monitoring.retrain_events`:
+
+| Panel | Source | Meaning |
+|-------|--------|---------|
+| Latest drift score (gauge) | `model_metrics.drift_score` | green < 0.3, orange ≥ 0.3, red ≥ 0.5 (DRIFT_THRESHOLD) |
+| Latest MAPE (stat) | `model_metrics.mape` | red ≥ 0.30 (MAPE_THRESHOLD) |
+| Last drift report (stat) | `model_metrics.measured_at` | freshness of monitoring |
+| Last training (stat) | `retrain_events.occurred_at` (promoted) | last promotion timestamp |
+| MAPE over time (timeseries) | `model_metrics` | performance trend |
+| Drift score over time (timeseries) | `model_metrics` | input-drift trend |
+| Retraining events (table) | `retrain_events` | promote / no-promote audit trail |
+
+This **extends** the Bloc 3 pipeline-health observability (`monitoring.pipeline_runs`)
+rather than replacing it — both live in the same Grafana instance and Postgres
+datasource. Monitoring stays here and in Evidently; the Streamlit app is business
+only (separation of concerns).
 
 ## Access
 
-| URL | `http://localhost:3000` |
-|-----|------------------------|
-| Username | `admin` (or `GRAFANA_ADMIN_USER` in `.env`) |
-| Password | `change_me_grafana` (or `GRAFANA_ADMIN_PASSWORD` in `.env`) |
+- URL: http://localhost:3000  (default user `admin`, password from `GRAFANA_ADMIN_PASSWORD`).
+- The dashboard appears under the **NOUREDDINE** folder.
 
-## Dashboards
+## Credentials / env
 
-**NOUREDDINE — Pipeline & Data Quality** (`noureddine-pipeline`):
-
-| Panel | Query | What it proves |
-|-------|-------|----------------|
-| Silver orders row count | `COUNT(*) FROM silver.stg_orders` | Staging layer is being populated |
-| Gold fact_sales count | `COUNT(*) FROM gold.fact_sales` | Gold star schema is live |
-| Pipeline run history | `monitoring.pipeline_runs` | Airflow DAG is running on schedule |
-| Last run status | `monitoring.pipeline_runs ORDER BY created_at DESC` | Pass/fail status of last DAG run |
-
-## Datasource
-
-PostgreSQL (Postgres 16, schema `noureddine`). Credentials from environment variables.
-
-In a real AWS production deployment the equivalent would be **CloudWatch** (no cost to deploy,
-native AWS integration). Grafana is used here to stay free and self-hosted (ADR 0008).
-
-## No Prometheus
-
-This stack uses Postgres as the single metrics store. No Prometheus/StatsD. All pipeline
-metadata is written by the Airflow DAG into `monitoring.pipeline_runs` (a plain SQL table),
-which Grafana queries directly. This is simpler and sufficient for an SME-scale platform.
+The datasource reads its connection from env vars injected by compose
+(`NOUREDDINE_DB_HOST/NAME/USER/PASSWORD`). No secrets are committed.

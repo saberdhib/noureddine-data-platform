@@ -1,0 +1,42 @@
+flowchart TD
+    subgraph Data["Data — Postgres gold + oltp"]
+        D1[(gold.fact_sales\norders per category x day)]
+        D2[(oltp.calendar_events\nRamadan · Eid · Nikah · BF)]
+    end
+
+    subgraph Features["Feature Engineering (NO PII)"]
+        F1[Aggregate to category x day series]
+        F2[Calendar features\ndays_to_next_eid · in_ramadan · in_nikah_season]
+        F3[Lag features per category\nlag_7 · lag_14 · lag_30]
+        F4[Rolling means per category\nrolling_7d · rolling_30d]
+        F5[Category as categorical feature]
+    end
+
+    subgraph Train["Train — LightGBM"]
+        T1[Time-based split\nhold out last 30 days]
+        T2[Fit LightGBM regressor]
+    end
+
+    subgraph Validate["Validate"]
+        V1[Predict on 30d holdout]
+        V2[MAPE · sMAPE · RMSE\nper category + global]
+        V3{New MAPE <= current MAPE x 1.05 ?}
+    end
+
+    subgraph Promote["Promote — atomic"]
+        P1[Write models/name_timestamp.pkl]
+        P2[Swap symlink current.pkl]
+        P3[Keep last 5 versions for rollback]
+    end
+
+    Hold[Hold current model\nlog no-promotion]
+    SHAP[SHAP global summary\nmodels/shap_summary.png]
+
+    D1 --> F1
+    D2 --> F2
+    F1 --> F2 --> F3 --> F4 --> F5
+    F5 --> T1 --> T2
+    T2 --> V1 --> V2 --> V3
+    T2 --> SHAP
+    V3 -- yes --> P1 --> P2 --> P3
+    V3 -- no --> Hold

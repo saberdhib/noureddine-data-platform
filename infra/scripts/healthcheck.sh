@@ -37,7 +37,7 @@ echo ""
 # 1. Container health status
 # ---------------------------------------------------------------------------
 echo "── Container health ────────────────────"
-for svc in postgres minio pgadmin airflow; do
+for svc in postgres minio pgadmin airflow api streamlit grafana; do
     container="noureddine_${svc}"
     status=$(docker inspect --format='{{.State.Health.Status}}' "${container}" 2>/dev/null || echo "not_found")
     if [[ "${status}" == "healthy" ]]; then
@@ -134,47 +134,38 @@ done
 echo ""
 
 # ---------------------------------------------------------------------------
-# Bloc 3 — Silver / Gold / Grafana checks (skipped if tables not yet populated)
+# 4. Bloc 4 — model serving, business app, monitoring
 # ---------------------------------------------------------------------------
-echo "── Bloc 3 — Pipeline checks ────────────"
+echo "── Bloc 4: AI/MLOps ────────────────────"
 
-# Silver layer
-silver_count=$(docker exec noureddine_postgres \
-    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
-    "SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'silver';" 2>/dev/null || echo "0")
-if [[ "${silver_count:-0}" -gt 0 ]]; then
-    ok "silver schema: ${silver_count} views present"
-else
-    warn "silver schema: no views (run dbt build after simulator history)"
-fi
+API_PORT="${API_PORT:-8000}"
+STREAMLIT_PORT="${STREAMLIT_PORT:-8501}"
+GRAFANA_PORT="${GRAFANA_PORT:-3000}"
 
-# Gold fact_sales
-gold_rows=$(docker exec noureddine_postgres \
-    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
-    "SELECT COUNT(*) FROM gold.fact_sales;" 2>/dev/null || echo "-1")
-if [[ "${gold_rows:-0}" -gt 0 ]]; then
-    ok "gold.fact_sales: ${gold_rows} rows"
-else
-    warn "gold.fact_sales: empty (run simulator history + dbt build)"
-fi
+# FastAPI /health
+api_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${API_PORT}/health" 2>/dev/null || echo "000")
+[[ "${api_code}" == "200" ]] && ok "FastAPI /health (HTTP ${api_code})" || fail "FastAPI /health (HTTP ${api_code})"
 
-# Calendar events seeded
-cal_count=$(docker exec noureddine_postgres \
-    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
-    "SELECT COUNT(*) FROM oltp.calendar_events;" 2>/dev/null || echo "0")
-if [[ "${cal_count:-0}" -ge 12 ]]; then
-    ok "calendar_events: ${cal_count} events seeded"
-else
-    warn "calendar_events: only ${cal_count} events (run simulator history)"
-fi
+# FastAPI auth enforced on /predict (expect 401 without key)
+predict_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:${API_PORT}/predict" \
+    -H "Content-Type: application/json" -d '{"category":"Qamis","horizon":7}' 2>/dev/null || echo "000")
+[[ "${predict_code}" == "401" ]] && ok "FastAPI /predict requires API key (HTTP 401)" || fail "FastAPI /predict auth (got ${predict_code}, expected 401)"
+
+# Streamlit health
+st_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${STREAMLIT_PORT}/_stcore/health" 2>/dev/null || echo "000")
+[[ "${st_code}" == "200" ]] && ok "Streamlit /_stcore/health (HTTP ${st_code})" || fail "Streamlit health (HTTP ${st_code})"
 
 # Grafana health
-grafana_status=$(curl -sf http://localhost:${GRAFANA_PORT:-3000}/api/health 2>/dev/null | grep -o '"ok"' || echo "")
-if [[ -n "${grafana_status}" ]]; then
-    ok "Grafana: healthy (http://localhost:${GRAFANA_PORT:-3000})"
-else
-    warn "Grafana: not responding (start with docker compose up grafana)"
-fi
+gf_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${GRAFANA_PORT}/api/health" 2>/dev/null || echo "000")
+[[ "${gf_code}" == "200" ]] && ok "Grafana /api/health (HTTP ${gf_code})" || fail "Grafana health (HTTP ${gf_code})"
+
+# Monitoring tables present
+check_count "monitoring.model_metrics (schema present)" \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='monitoring' AND table_name='model_metrics';" 1
+
+# Promoted model present (checked inside the api container's mounted models dir)
+model_present=$(docker exec noureddine_api /bin/sh -c "[ -e /app/ml/models/current.pkl ] && echo yes || echo no" 2>/dev/null || echo "no")
+[[ "${model_present}" == "yes" ]] && ok "Promoted model current.pkl present" || fail "current.pkl missing (run training / retrain_model)"
 
 echo ""
 
