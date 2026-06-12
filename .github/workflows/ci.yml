@@ -165,11 +165,13 @@ jobs:
 
       - name: dbt parse
         working-directory: dbt/noureddine
-        run: dbt parse --profiles-dir ~/.dbt --vars '{enable_elementary: false}'
+        run: |
+          dbt parse --profiles-dir ~/.dbt --vars '{enable_elementary: false}'
 
       - name: dbt compile
         working-directory: dbt/noureddine
-        run: dbt compile --profiles-dir ~/.dbt --vars '{enable_elementary: false}'
+        run: |
+          dbt compile --profiles-dir ~/.dbt --vars '{enable_elementary: false}'
 
   lint-sql:
     name: Lint SQL files (sqlfluff)
