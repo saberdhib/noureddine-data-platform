@@ -158,10 +158,16 @@ jobs:
           psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
             -f sql/ddl/06_create_monitoring.sql
 
-      - name: dbt deps (Elementary — best effort)
+      # This job validates that the dbt MODELS parse + compile. Elementary is a
+      # third-party observability package (hub-hosted) not needed for that, so we
+      # strip it here to keep CI hub-independent; real runs keep it (packages.yml).
+      - name: Strip optional Elementary package (CI validates models only)
+        run: |
+          printf 'packages: []\n' > dbt/noureddine/packages.yml
+
+      - name: dbt deps
         working-directory: dbt/noureddine
-        continue-on-error: true
-        run: dbt deps --profiles-dir ~/.dbt || echo "dbt deps failed (Elementary hub); parse/compile run with elementary disabled"
+        run: dbt deps --profiles-dir ~/.dbt
 
       - name: dbt parse
         working-directory: dbt/noureddine
