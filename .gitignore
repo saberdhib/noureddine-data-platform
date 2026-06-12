@@ -48,3 +48,4 @@ airflow.cfg
 # Temp
 tmp/
 *.tmp
+.claude/
