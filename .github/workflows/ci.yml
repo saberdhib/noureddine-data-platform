@@ -1,4 +1,4 @@
-name: CI — Validate & Lint
+name: CI — Validate, Lint & dbt
 
 on:
   push:
@@ -101,6 +101,74 @@ jobs:
             SELECT COUNT(*) AS event_rows  FROM gold.v_sales_by_calendar_event;
             SELECT COUNT(*) AS product_rows FROM gold.v_top_products;
           "
+
+  dbt-validate:
+    name: dbt parse + compile (Bloc 3)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB:       noureddine
+          POSTGRES_USER:     noureddine_user
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U noureddine_user -d noureddine"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt-postgres
+        run: pip install dbt-postgres==1.8.3
+
+      - name: Create dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<EOF
+          noureddine:
+            target: ci
+            outputs:
+              ci:
+                type: postgres
+                host: localhost
+                port: 5432
+                dbname: noureddine
+                user: noureddine_user
+                password: ci_password
+                schema: public
+                threads: 1
+          EOF
+
+      - name: Create DB schemas (for compile)
+        run: |
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/01_create_schemas.sql
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/02_create_tables_oltp.sql
+          psql postgresql://noureddine_user:ci_password@localhost:5432/noureddine \
+            -f sql/ddl/06_create_monitoring.sql
+
+      - name: dbt deps
+        working-directory: dbt/noureddine
+        run: dbt deps --profiles-dir ~/.dbt
+
+      - name: dbt parse
+        working-directory: dbt/noureddine
+        run: dbt parse --profiles-dir ~/.dbt
+
+      - name: dbt compile
+        working-directory: dbt/noureddine
+        run: dbt compile --profiles-dir ~/.dbt
 
   lint-sql:
     name: Lint SQL files (sqlfluff)

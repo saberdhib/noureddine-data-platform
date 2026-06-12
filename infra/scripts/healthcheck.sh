@@ -25,6 +25,7 @@ FAIL=0
 
 ok()   { echo "  ✅ $1"; }
 fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
+warn() { echo "  ⚠️  $1"; }  # non-blocking — only required after full Bloc 3 run
 
 echo ""
 echo "========================================"

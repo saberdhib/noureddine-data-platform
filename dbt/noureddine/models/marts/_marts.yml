@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Customer dimension (gold)."
+    columns:
+      - name: customer_key
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null, unique]
+
+  - name: dim_product
+    description: "Product dimension (gold)."
+    columns:
+      - name: product_key
+        tests: [not_null, unique]
+      - name: product_id
+        tests: [not_null, unique]
+
+  - name: dim_date
+    description: "Date spine 2023-01-01 -> 2027-12-31 (gold)."
+    columns:
+      - name: date_key
+        tests: [not_null, unique]
+      - name: date
+        tests: [not_null, unique]
+
+  - name: dim_channel
+    description: "Acquisition channel dimension (gold)."
+    columns:
+      - name: channel_key
+        tests: [not_null, unique]
+      - name: channel_name
+        tests: [not_null, unique]
+
+  - name: dim_calendar_event
+    description: "Islamic + retail calendar event dimension (gold)."
+    columns:
+      - name: calendar_event_key
+        tests: [not_null, unique]
+
+  - name: fact_sales
+    description: "Sales fact at order_item grain (gold). Owned by dbt from Bloc 3."
+    columns:
+      - name: sale_key
+        tests: [not_null, unique]
+      - name: order_id
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key

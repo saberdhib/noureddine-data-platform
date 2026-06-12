@@ -16,14 +16,18 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+# Elementary uploads dbt run/test artifacts for the data-quality layer (ADR 0007).
+on-run-end:
+  - "{{ elementary.upload_dbt_artifacts() }}"
+
 models:
   noureddine:
-    bronze:
-      +schema: bronze
-      +materialized: view
-    silver:
+    staging:
       +schema: silver
-      +materialized: table
-    gold:
+      +materialized: view
+    marts:
       +schema: gold
       +materialized: table
+  # Elementary internal models live in their own schema.
+  elementary:
+    +schema: elementary

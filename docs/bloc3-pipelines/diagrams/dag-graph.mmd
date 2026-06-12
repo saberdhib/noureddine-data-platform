@@ -1,0 +1,15 @@
+flowchart LR
+    T1["check_new_data\n(PythonOperator)\nCount new OLTP orders\nsince last run"]
+    T2["dbt_build\n(BashOperator)\ndbt build --no-version-check\n(run + test, fails DAG on test failure)"]
+    T3["write_run_metadata\n(PythonOperator)\nINSERT INTO monitoring.pipeline_runs\n(trigger_rule: all_done)"]
+
+    T1 --> T2 --> T3
+
+    OFC["on_failure_callback\n(any task failure)\nLog structured JSON alert\n+ optional webhook POST"]
+
+    T1 -.->|failure| OFC
+    T2 -.->|failure| OFC
+    T3 -.->|failure| OFC
+
+    style OFC fill:#ff9999,stroke:#cc0000
+    style T2 fill:#d4edda,stroke:#28a745

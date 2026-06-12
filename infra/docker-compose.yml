@@ -155,6 +155,7 @@ services:
       <<: *airflow-env
     volumes:
       - ../dags:/opt/airflow/dags:ro
+      - ../dbt:/opt/airflow/dbt:ro
       - airflow_logs:/opt/airflow/logs
       # Bloc 4: the ML package + monitoring code + shared models, importable by the DAGs.
       - ../ml:/opt/airflow/ml
