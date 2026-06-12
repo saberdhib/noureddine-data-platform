@@ -25,6 +25,7 @@ FAIL=0
 
 ok()   { echo "  ✅ $1"; }
 fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
+warn() { echo "  ⚠️  $1"; }  # non-blocking — only required after full Bloc 3 run
 
 echo ""
 echo "========================================"
@@ -129,6 +130,51 @@ for bucket in bronze silver gold; do
         fi
     fi
 done
+
+echo ""
+
+# ---------------------------------------------------------------------------
+# Bloc 3 — Silver / Gold / Grafana checks (skipped if tables not yet populated)
+# ---------------------------------------------------------------------------
+echo "── Bloc 3 — Pipeline checks ────────────"
+
+# Silver layer
+silver_count=$(docker exec noureddine_postgres \
+    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
+    "SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'silver';" 2>/dev/null || echo "0")
+if [[ "${silver_count:-0}" -gt 0 ]]; then
+    ok "silver schema: ${silver_count} views present"
+else
+    warn "silver schema: no views (run dbt build after simulator history)"
+fi
+
+# Gold fact_sales
+gold_rows=$(docker exec noureddine_postgres \
+    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
+    "SELECT COUNT(*) FROM gold.fact_sales;" 2>/dev/null || echo "-1")
+if [[ "${gold_rows:-0}" -gt 0 ]]; then
+    ok "gold.fact_sales: ${gold_rows} rows"
+else
+    warn "gold.fact_sales: empty (run simulator history + dbt build)"
+fi
+
+# Calendar events seeded
+cal_count=$(docker exec noureddine_postgres \
+    psql -U "${POSTGRES_USER:-noureddine_user}" -d "${POSTGRES_DB:-noureddine}" -tAc \
+    "SELECT COUNT(*) FROM oltp.calendar_events;" 2>/dev/null || echo "0")
+if [[ "${cal_count:-0}" -ge 12 ]]; then
+    ok "calendar_events: ${cal_count} events seeded"
+else
+    warn "calendar_events: only ${cal_count} events (run simulator history)"
+fi
+
+# Grafana health
+grafana_status=$(curl -sf http://localhost:${GRAFANA_PORT:-3000}/api/health 2>/dev/null | grep -o '"ok"' || echo "")
+if [[ -n "${grafana_status}" ]]; then
+    ok "Grafana: healthy (http://localhost:${GRAFANA_PORT:-3000})"
+else
+    warn "Grafana: not responding (start with docker compose up grafana)"
+fi
 
 echo ""
 

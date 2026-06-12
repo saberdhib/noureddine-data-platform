@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Sources
+        SIM["Data Simulator\n(generate_history.py\ndrip.py)"]
+    end
+
+    subgraph Bronze["Bronze Layer (MinIO S3)"]
+        B1["orders/\nraw JSON batches"]
+    end
+
+    subgraph OLTP["OLTP (PostgreSQL)"]
+        O1["oltp.orders\noltp.customers\noltp.products\n..."]
+    end
+
+    subgraph Orchestration["Airflow DAG: ingest_orders\n(every 10 min)"]
+        A1["check_new_data"]
+        A2["dbt_build\n(run + test)"]
+        A3["write_run_metadata"]
+        A1 --> A2 --> A3
+    end
+
+    subgraph Silver["Silver Layer (PostgreSQL schema: silver)"]
+        S1["stg_orders\nstg_customers\nstg_products\n..."]
+    end
+
+    subgraph Gold["Gold Layer (PostgreSQL schema: gold)"]
+        G1["dim_customer\ndim_product\ndim_date\ndim_channel\ndim_calendar_event"]
+        G2["fact_sales"]
+    end
+
+    subgraph Quality["Data Quality"]
+        EL["Elementary\nHTML Report"]
+        DT["dbt tests\n(generic + singular)"]
+    end
+
+    subgraph Monitoring["Monitoring"]
+        GF["Grafana\nDashboards\n(row counts, freshness,\ntest pass-rate, run history)"]
+        PR["monitoring.pipeline_runs"]
+    end
+
+    SIM -->|"raw JSON"| B1
+    SIM -->|"INSERT"| O1
+    O1 --> A1
+    B1 -.->|"reference"| A1
+    A2 -->|"dbt run"| S1
+    A2 -->|"dbt run"| G1
+    A2 -->|"dbt run"| G2
+    A2 -->|"dbt test"| DT
+    DT --> EL
+    A3 --> PR
+    PR --> GF
+    S1 --> GF
+    G2 --> GF

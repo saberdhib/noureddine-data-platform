@@ -20,9 +20,9 @@ The PFE is split into **4 Blocs**, delivered sequentially in **one mono-repo**:
 | Bloc | Theme | Status |
 |------|-------|--------|
 | Bloc 1 | Data Governance (policy, RGPD, RACI, risks) | ✅ Done (Word + PPTX, in `/docs/bloc1`) |
-| Bloc 2 | Data Architecture (infra, warehouse schema, Docker) | 🟢 **CURRENT** |
-| Bloc 3 | Data Pipelines (Airflow DAGs, dbt, data quality) | ⏳ Next |
-| Bloc 4 | AI / MLOps (forecasting model, FastAPI, CI/CD, Evidently) | ⏳ After |
+| Bloc 2 | Data Architecture (infra, warehouse schema, Docker) | ✅ Done (stack 100% green, pushed) |
+| Bloc 3 | Data Pipelines + data monitoring (simulator, Airflow, dbt, Elementary, Grafana) | 🟢 **CURRENT** |
+| Bloc 4 | AI / MLOps + business consumption (forecasting, FastAPI, CI/CD, Evidently, Streamlit) | ⏳ After |
 
 **Critical rule:** Build only the current Bloc's scope. Do NOT pre-build later Blocs. Leave clean, empty, well-named placeholders for future Blocs so the structure is ready but not filled.
 
@@ -237,3 +237,51 @@ A Bloc is done when:
 4. Documentation (README + Bloc docs + diagrams + ADRs) is complete and accurate.
 5. Everything is committed and pushed to GitHub on a clean history.
 6. A short "How to demo" section exists in the Bloc doc for the screencast video.
+
+---
+
+## 9. Bloc 3 Technical Decisions
+
+### Ingestion paradigm: micro-batch (locked — do not reopen)
+NOUREDDINE is an ~€8–9M SME. Pure streaming (Kafka/Kinesis) is disproportionate. We implement **micro-batch**:
+- A **data simulator** seeds the full history in one shot, THEN runs in continuous **"drip" mode**, injecting new orders every N seconds into `oltp` + raw files into MinIO `bronze`.
+- **Airflow** ingests on a short schedule (every 10 min, demo-tunable) and runs dbt transformations + tests.
+- ADR `0006-microbatch-over-streaming.md` justifies micro-batch vs streaming.
+
+### Fixed Islamic-calendar windows (reference data — NEVER compute or guess these)
+```
+Ramadan 2024:  Mar 11 – Apr 9   · Eid al-Fitr 2024: Apr 10 · Eid al-Adha 2024: Jun 16
+Ramadan 2025:  Mar 1  – Mar 30  · Eid al-Fitr 2025: Mar 31 · Eid al-Adha 2025: Jun 6
+Ramadan 2026:  Feb 18 – Mar 19  · Eid al-Fitr 2026: Mar 20 · Eid al-Adha 2026: May 27
+Pre-Eid peak window = 14 days before each Eid al-Fitr
+Nikah season:  Jun 1 – Aug 31 each year
+Black Friday:  last Friday of November
+```
+The simulator upserts these into `oltp.calendar_events` if missing.
+
+### Demand model (multipliers × product category)
+- **Pre-Eid al-Fitr (14 days) ×4.0** — Qamis, GiftSet (the year's biggest peak)
+- **Ramadan ×2.5** — Grooming, Qamis, ReadyToWear
+- **Eid al-Adha ×2.8** — Suit, ReadyToWear, Accessory
+- **Nikah season ×2.2** — Suit, Accessory, LeatherGoods
+- **Black Friday ×3.2** — all categories
+- **Baseline ×1.0** the rest of the year
+- Plus: ±15% random noise, +~15%/year growth trend, weekend/payday uplift
+
+### Simulator reset behaviour (seed collision corrective)
+`generate_history.py --reset` (default in history mode): TRUNCATE all oltp business tables
+(`customers`, `orders`, `order_items`, `shipments`, `marketing_events`, `rag_conversations`,
+`inventory`, `products`) CASCADE before generating. Keep/refresh `categories` + `calendar_events`.
+
+### Gold ownership: dbt is single source of truth from Bloc 3
+dbt mart models (`+materialized: table`, schema `gold`) own schema `gold`. The Bloc 2 gold DDL
+in `/sql` is annotated as superseded. ADR 0008.
+
+### Tooling additions (Bloc 3)
+| Layer | Tool | Notes |
+|-------|------|-------|
+| Data simulator | Python (Faker + numpy) | `simulator/` — history + drip modes |
+| Transformation | dbt-postgres | `dbt/noureddine/models/staging/` + `marts/` |
+| Data quality | dbt tests + Elementary | generic + singular tests; HTML report via `edr report` |
+| Monitoring | Grafana + PostgreSQL datasource ONLY | `infra/grafana/` — no Prometheus |
+| Alerting | Airflow `on_failure_callback` | structured log + optional webhook; `FORCE_FAILURE=1` for demo |
