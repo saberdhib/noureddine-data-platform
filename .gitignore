@@ -62,3 +62,4 @@ ml/models/retrain_jobs/
 # Evidently reports (large generated HTML) — keep only the README
 monitoring/evidently/reports/*
 !monitoring/evidently/reports/.gitkeep
+.claude/
