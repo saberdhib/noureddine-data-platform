@@ -1,0 +1,74 @@
+{
+  "version": "20260612_111750",
+  "trained_at": "2026-06-12T11:17:50.388832+00:00",
+  "global": {
+    "mape": 0.1134,
+    "smape": 0.1143,
+    "rmse": 4.3472
+  },
+  "per_category": {
+    "Accessory": {
+      "mape": 0.1181,
+      "smape": 0.1105,
+      "rmse": 3.7811
+    },
+    "GiftSet": {
+      "mape": 0.1129,
+      "smape": 0.1145,
+      "rmse": 2.5602
+    },
+    "Grooming": {
+      "mape": 0.0843,
+      "smape": 0.0873,
+      "rmse": 4.7431
+    },
+    "LeatherGoods": {
+      "mape": 0.1051,
+      "smape": 0.1039,
+      "rmse": 1.7387
+    },
+    "Qamis": {
+      "mape": 0.1313,
+      "smape": 0.1363,
+      "rmse": 6.3684
+    },
+    "ReadyToWear": {
+      "mape": 0.1286,
+      "smape": 0.1332,
+      "rmse": 5.1442
+    }
+  },
+  "categories": [
+    "Accessory",
+    "GiftSet",
+    "Grooming",
+    "LeatherGoods",
+    "Qamis",
+    "ReadyToWear"
+  ],
+  "feature_names": [
+    "category_code",
+    "lag_7",
+    "lag_14",
+    "lag_30",
+    "rolling_7d",
+    "rolling_30d",
+    "days_to_next_eid_fitr",
+    "days_to_next_eid_adha",
+    "days_to_ramadan_start",
+    "days_to_black_friday",
+    "in_ramadan",
+    "in_pre_eid_window",
+    "in_nikah_season",
+    "is_weekend",
+    "day_of_week",
+    "month",
+    "week_of_year"
+  ],
+  "n_observations": 6642,
+  "date_range": [
+    "2023-06-01",
+    "2026-06-11"
+  ],
+  "model_path": "/home/user/noureddine-data-platform/ml/models/model_20260612_111750.pkl"
+}

@@ -1,0 +1,20 @@
+# Grafana datasource — NOUREDDINE Postgres (provisioned).
+# Reads monitoring.model_metrics (Bloc 4) + monitoring.pipeline_runs (Bloc 3).
+apiVersion: 1
+
+datasources:
+  - name: NOUREDDINE-Postgres
+    uid: noureddine_pg
+    type: postgres
+    access: proxy
+    url: ${NOUREDDINE_DB_HOST}:5432
+    database: ${NOUREDDINE_DB_NAME}
+    user: ${NOUREDDINE_DB_USER}
+    secureJsonData:
+      password: ${NOUREDDINE_DB_PASSWORD}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    isDefault: true
+    editable: true

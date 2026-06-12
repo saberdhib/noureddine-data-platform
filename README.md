@@ -29,9 +29,9 @@ The platform is built across 4 Blocs:
 | Bloc | Theme | Status |
 |------|-------|--------|
 | Bloc 1 | Data Governance (policy, RGPD, RACI, risks) | ✅ Done |
-| Bloc 2 | Data Architecture (infra, warehouse schema, Docker) | ✅ **Current** |
-| Bloc 3 | Data Pipelines (Airflow DAGs, dbt, data quality) | ⏳ Next |
-| Bloc 4 | AI / MLOps (forecasting model, FastAPI, Evidently) | ⏳ After |
+| Bloc 2 | Data Architecture (infra, warehouse schema, Docker) | ✅ Done |
+| Bloc 3 | Data Pipelines (Airflow DAGs, dbt, data quality) | ✅ Done |
+| Bloc 4 | AI / MLOps (LightGBM, FastAPI, Evidently, Streamlit) | ✅ **Current** |
 
 ---
 
@@ -164,6 +164,9 @@ docker exec -it noureddine_postgres psql -U noureddine_user -d noureddine -c "SE
 | MinIO UI  | http://localhost:9001   | `minio_admin` / `change_me_minio` |
 | Airflow   | http://localhost:8080   | `admin` / `change_me_airflow` |
 | PostgreSQL| `localhost:5432`        | `noureddine_user` / `change_me_postgres` (DB: `noureddine`) |
+| FastAPI (Bloc 4)   | http://localhost:8000/docs | `X-API-Key: change_me_api_key` (protected endpoints) |
+| Streamlit (Bloc 4) | http://localhost:8501      | — (business app: dashboard, forecast, stock pilot) |
+| Grafana (Bloc 4)   | http://localhost:3000      | `admin` / `change_me_grafana` ("Model Health" dashboard) |
 
 > **Security note:** Change all default passwords before exposing any service outside localhost.
 

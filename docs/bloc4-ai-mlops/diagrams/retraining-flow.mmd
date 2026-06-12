@@ -1,0 +1,36 @@
+flowchart TD
+    subgraph Monitor["DAG: monitor_model (daily)"]
+        MM1[Extract last 30d actuals + predictions]
+        MM2[Run Evidently\ndata drift + target drift + performance]
+        MM3[Write monitoring.model_metrics]
+        MM4[Export Evidently HTML report]
+        MM5{check_thresholds\ndrift > 0.5 OR MAPE > 0.30 ?}
+    end
+
+    subgraph Trigger["Drift trigger"]
+        TR1[TriggerDagRunOperator]
+    end
+
+    NoOp[No action\ndashboard stays green]
+
+    subgraph Retrain["DAG: retrain_model (Sundays 02:00 + on trigger)"]
+        RT0{P-04 gate\nlast pipeline_runs green ?}
+        RT1[Extract gold.fact_sales]
+        RT2[Feature engineering]
+        RT3[Train LightGBM]
+        RT4[Validate on 30d holdout]
+        RT5{new MAPE <= current x 1.05 ?}
+        RT6[Promote — atomic symlink swap]
+        RT7[Hold current — log no-promotion]
+        RTskip[Skip — data quality red]
+    end
+
+    MM1 --> MM2 --> MM3
+    MM2 --> MM4
+    MM3 --> MM5
+    MM5 -- breach --> TR1 --> RT0
+    MM5 -- ok --> NoOp
+    RT0 -- yes --> RT1 --> RT2 --> RT3 --> RT4 --> RT5
+    RT0 -- no --> RTskip
+    RT5 -- yes --> RT6
+    RT5 -- no --> RT7

@@ -2,7 +2,7 @@ name: CI — Validate & Lint
 
 on:
   push:
-    branches: ["main", "bloc2/**"]
+    branches: ["main", "bloc2/**", "bloc4/**", "claude/**"]
   pull_request:
     branches: ["main"]
 
@@ -126,3 +126,52 @@ jobs:
             --templater raw \
             || echo "Lint warnings found (non-blocking in Bloc 2)"
         continue-on-error: true
+
+  # ===========================================================================
+  # Bloc 4 — AI/MLOps
+  # ===========================================================================
+  ml-test:
+    name: ML — features/train/predict tests (synthetic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ML deps
+        run: pip install -r ml/requirements.txt
+      - name: Run ML tests (tiny synthetic fixtures — no DB)
+        run: pytest ml/tests/ -q
+
+  api-test:
+    name: API — FastAPI TestClient tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install API deps
+        run: pip install -r api/requirements.txt
+      - name: Run API tests (mocked model — no DB)
+        env:
+          API_KEY: test-key
+        run: pytest api/tests/ -q
+
+  streamlit-smoke:
+    name: Streamlit — smoke (imports + syntax)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Streamlit deps
+        run: pip install -r streamlit/requirements.txt
+      - name: streamlit CLI available
+        run: streamlit run --help > /dev/null
+      - name: Compile all pages + import lib modules (catch syntax/import errors)
+        working-directory: streamlit
+        run: |
+          python -m py_compile app.py pages/*.py lib/*.py
+          python -c "import sys; sys.path.insert(0,'.'); import lib.calendar_overlays, lib.api_client; print('lib imports OK')"

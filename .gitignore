@@ -48,3 +48,17 @@ airflow.cfg
 # Temp
 tmp/
 *.tmp
+
+# Bloc 4 — ML artefacts (binaries are build outputs, not source)
+#   committed: metrics.json, model_card.md, shap_summary.png (small, illustrative)
+#   ignored:   model binaries, the promoted symlink, snapshots, job logs
+ml/models/*.pkl
+ml/models/current.pkl
+ml/models/training_data_snapshot.parquet
+ml/models/last_retrain.json
+ml/models/retrain_jobs/
+!ml/models/.gitkeep
+
+# Evidently reports (large generated HTML) — keep only the README
+monitoring/evidently/reports/*
+!monitoring/evidently/reports/.gitkeep
