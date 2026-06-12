@@ -91,9 +91,15 @@ A clean walk-through for the screencast. Run from the repo root.
     + J+30 forecast with confidence band and the **Islamic-calendar overlays** — Ramadan gold band,
     Eid al-Fitr dashed lines, Eid al-Adha in a distinct colour, Nikah-season band, Black Friday
     marker) → Stock Pilot (days-of-cover + 🟢/🟠/🔴 restock signal) → **🤖 AI Advisor** (optional,
-    ADR-0015): a grounded OpenAI briefing that turns forecast + inventory + calendar into an
-    actionable restock plan in French. Disabled unless `OPENAI_API_KEY` is set; only category-level
-    aggregates are sent (no PII). The page shows the underlying data even without a key.
+    ADR-0015): a grounded OpenAI briefing that turns forecast + inventory + **restock lead time**
+    (`RESTOCK_LEAD_TIME_DAYS`) + calendar into an actionable restock plan in French — it flags
+    *rupture avant livraison* (cover < lead time). Disabled unless `OPENAI_API_KEY` is set; only
+    category-level aggregates are sent (no PII); shows the underlying data even without a key.
+
+    **Punchy pre-Eid demo:** `python ml/scripts/seed_demo_pre_eid.py` then `python ml/src/train.py`
+    seeds data ending ~14 days before Eid al-Adha 2026 with tight inventory. The pages auto-anchor on
+    the data frontier (`db.data_today()`), so the forecast straddles the Eid spike and every Eid-driven
+    category shows *rupture avant livraison* — the advisor recommends ordering now.
 12. **Force a drift breach.** Inject an anomalous row (SQL) or lower a threshold via env override
     (`DRIFT_THRESHOLD` / `MAPE_THRESHOLD`), re-run `monitor_model`, and show it firing
     `TriggerDagRunOperator` → `retrain_model` automatically. This closes the MLOps loop on camera.

@@ -96,6 +96,23 @@ def categories() -> list[str]:
     return df["category"].tolist()
 
 
+def data_today() -> pd.Timestamp:
+    """The forecast anchor = day AFTER the last day present in gold.fact_sales.
+
+    Anchoring 'today' on the data frontier keeps the cover/calendar logic aligned
+    with what the model actually forecasts (the API predicts from the same point),
+    so a demo seed that ends just before an Eid window 'just works'.
+    Falls back to 2026-06-12 if gold is empty.
+    """
+    df = run_query("""
+        SELECT MAX(d.date) AS d
+        FROM gold.fact_sales f JOIN gold.dim_date d ON d.date_key = f.date_key
+    """)
+    if df.empty or pd.isna(df.iloc[0]["d"]):
+        return pd.Timestamp("2026-06-12")
+    return pd.Timestamp(df.iloc[0]["d"]) + pd.Timedelta(days=1)
+
+
 def inventory_by_category() -> pd.DataFrame:
     return run_query("""
         SELECT p.category AS category, SUM(i.stock_quantity) AS stock
