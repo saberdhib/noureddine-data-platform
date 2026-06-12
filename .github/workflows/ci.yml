@@ -128,8 +128,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dbt-postgres
-        run: pip install dbt-postgres==1.8.2
+      - name: Install dbt
+        # Pin dbt-core too: installing only dbt-postgres lets pip resolve dbt-core
+        # to the 2.0.0a1 "Fusion" pre-release, which doesn't support Postgres
+        # (InvalidConfig dbt1005). Pinning 1.8.2 keeps the stable Postgres adapter.
+        run: pip install "dbt-core==1.8.2" "dbt-postgres==1.8.2"
 
       - name: Create dbt profiles
         run: |
