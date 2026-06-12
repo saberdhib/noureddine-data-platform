@@ -36,20 +36,14 @@ bash infra/scripts/up.sh
 bash infra/scripts/healthcheck.sh
 ```
 
-### 2. Seed full history (~3 years)
+### 2. Start the simulator (bootstrap ~3y, then live catch-up)
 
 ```bash
-SIM_MODE=history docker compose -f infra/docker-compose.yml --profile simulator up simulator
-# Runs generate_history.py --reset (truncates business tables, regenerates ~15k customers / 20k orders)
-# Exits when done (~2 min)
-```
-
-### 3. Start drip mode (continuous)
-
-```bash
-SIM_MODE=drip DRIP_INTERVAL_SECONDS=5 \
-  docker compose -f infra/docker-compose.yml --profile simulator up -d simulator
-# Injects 1-5 new orders every 5 seconds
+docker compose -f infra/docker-compose.yml up -d simulator
+docker logs -f noureddine_simulator
+# First run bootstraps ~3 years (NOW-3y → NOW); thereafter it catches up to NOW()
+# every CATCH_UP_INTERVAL_SECONDS (default 600). One process, no SIM_MODE.
+# Wipe + re-bootstrap:  docker compose run --rm simulator python -m simulator.run --reset --once
 ```
 
 ### 4. Trigger the DAG / wait for schedule
@@ -95,8 +89,8 @@ Recommended sequence for a 5–10 minute demo recording:
 
 3. **Show seasonality**: query orders by month — spike visible in March 2025 (Ramadan/Eid).
 
-4. **Start drip**: `SIM_MODE=drip docker compose --profile simulator up -d simulator`
-   then refresh pgAdmin orders count — it increments every ~10 seconds.
+4. **Show live catch-up**: `SELECT * FROM simulator.state;` — `last_generated_at` advances each
+   cycle. Stop the simulator, wait, restart → it catches up the gap (watermark jumps), no duplicates.
 
 5. **Trigger Airflow DAG**: Airflow UI → `ingest_orders` → Trigger.
    Show all 3 tasks turning green: `check_new_data` → `dbt_build` → `write_run_metadata`.

@@ -2,73 +2,626 @@ version: 2
 
 models:
   - name: stg_customers
-    description: "Cleaned customer records (silver). PII = C3."
+    description: "Cleaned customer records (silver). Direct PII = C3."
+    meta:
+      classification: C3
+      pii_level: direct
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.customers"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: customer_id
+        description: "Natural key of the customer (UUID). Direct identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Unique identifier of an individual customer."
         tests: [not_null, unique]
       - name: email
+        description: "Lower-cased customer email address. Direct contact PII."
+        meta:
+          pii: true
+          pii_category: contact
+          classification: C3
+          business_definition: "Customer email used for order and marketing communication."
         tests: [not_null]
+      - name: first_name
+        description: "Customer first name."
+        meta:
+          pii: true
+          pii_category: contact
+          classification: C3
+          business_definition: "Given name of the customer."
+      - name: last_name
+        description: "Customer last name."
+        meta:
+          pii: true
+          pii_category: contact
+          classification: C3
+          business_definition: "Family name of the customer."
+      - name: country
+        description: "Customer billing/shipping country."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "ISO country of the customer (market segmentation)."
+      - name: city
+        description: "Customer city."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "City of the customer."
+      - name: consent_marketing
+        description: "Marketing consent flag (RGPD)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Whether the customer consented to marketing communication."
+      - name: acquisition_source
+        description: "Where the customer was first acquired."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Marketing source that first acquired the customer."
+      - name: created_at
+        description: "Record creation timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the customer record was created."
+      - name: updated_at
+        description: "Record last-update timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the customer record was last updated."
 
   - name: stg_orders
-    description: "Cleaned orders (silver)."
+    description: "Cleaned orders (silver). Indirect PII via customer_id = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.orders"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: order_id
+        description: "Natural key of the order (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a customer order."
         tests: [not_null, unique]
       - name: customer_id
+        description: "FK to the customer who placed the order. Indirect identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Customer who placed the order (indirect personal link)."
         tests: [not_null]
+      - name: order_date
+        description: "Order timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Date and time the order was placed."
+      - name: order_day
+        description: "Order date truncated to day (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar day of the order, used to join the date dimension."
+          transformation: "order_date cast to date."
+      - name: total_amount
+        description: "Total order amount in EUR. Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Gross monetary value of the order in EUR."
+      - name: discount_amount
+        description: "Discount applied to the order in EUR."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total discount applied to the order in EUR."
+      - name: shipping_cost
+        description: "Shipping cost charged on the order in EUR."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Shipping fee billed on the order in EUR."
       - name: payment_status
+        description: "Payment lifecycle status. No card data is stored (C2)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Payment state of the order (paid/pending/refunded). No card data stored."
         tests:
           - accepted_values:
               values: ['paid', 'pending', 'refunded']
       - name: order_status
+        description: "Fulfilment status of the order."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Fulfilment state of the order."
         tests:
           - accepted_values:
               values: ['delivered', 'shipped', 'processing', 'cancelled', 'pending']
+      - name: acquisition_channel
+        description: "Acquisition channel (defaulted to 'direct')."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Channel that drove the order, defaulted to 'direct'."
+          transformation: "COALESCE(acquisition_channel, 'direct')."
+      - name: created_at
+        description: "Record creation timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the order record was created."
 
   - name: stg_order_items
-    description: "Cleaned order line items (silver)."
+    description: "Cleaned order line items (silver). Indirect PII via parent order = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.order_items"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: order_item_id
+        description: "Natural key of the order line (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of an order line item."
         tests: [not_null, unique]
       - name: order_id
+        description: "FK to the parent order."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Order the line item belongs to."
         tests: [not_null]
       - name: product_id
+        description: "FK to the ordered product."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Product sold on this line item."
         tests: [not_null]
+      - name: quantity
+        description: "Units of the product on this line."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Quantity of the product ordered on this line."
+      - name: unit_price
+        description: "Unit price in EUR. Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Price per unit of the product in EUR at order time."
+      - name: line_total
+        description: "Line total in EUR. Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total value of the line (quantity x unit_price) in EUR."
 
   - name: stg_products
+    description: "Cleaned product catalogue (silver). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.products"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: product_id
+        description: "Natural key of the product (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a product."
         tests: [not_null, unique]
       - name: sku
+        description: "Stock keeping unit (unique)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique stock-keeping code of the product."
         tests: [not_null, unique]
+      - name: product_name
+        description: "Display name of the product."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Commercial name of the product."
+      - name: category_id
+        description: "FK to the product category."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Category the product belongs to."
+      - name: price_eur
+        description: "Selling price in EUR. Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Catalogue selling price of the product in EUR."
+      - name: cost_eur
+        description: "Unit cost in EUR. Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Unit cost of the product in EUR."
+      - name: seasonality_tag
+        description: "Seasonality tag (e.g. Ramadan, Eid)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Seasonal demand tag tied to the Islamic/retail calendar."
+      - name: created_at
+        description: "Record creation timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the product record was created."
+      - name: updated_at
+        description: "Record last-update timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the product record was last updated."
 
   - name: stg_categories
+    description: "Cleaned product categories (silver). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.categories"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: category_id
+        description: "Natural key of the category (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a product category."
         tests: [not_null, unique]
       - name: category_name
+        description: "Category display name (unique)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Name of the product category (e.g. Qamis, Grooming)."
         tests: [not_null, unique]
+      - name: created_at
+        description: "Record creation timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the category record was created."
+
+  - name: stg_inventory
+    description: "Cleaned inventory levels (silver). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.inventory"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
+    columns:
+      - name: inventory_id
+        description: "Natural key of the inventory record (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of an inventory record."
+      - name: product_id
+        description: "FK to the stocked product."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Product the inventory level refers to."
+      - name: stock_quantity
+        description: "Current stock on hand."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Units of the product currently in stock."
+      - name: reorder_threshold
+        description: "Reorder trigger level."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Stock level at which the product should be restocked."
+      - name: last_updated
+        description: "Record last-update timestamp."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp the inventory record was last updated."
 
   - name: stg_shipments
+    description: "Cleaned shipments (silver). Indirect PII via parent order = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.shipments"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: shipment_id
+        description: "Natural key of the shipment (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a shipment."
         tests: [not_null, unique]
+      - name: order_id
+        description: "FK to the shipped order."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Order being shipped."
+      - name: carrier
+        description: "Shipping carrier."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Carrier handling the shipment."
+      - name: tracking_number
+        description: "Carrier tracking number tied to the order/customer. Indirect identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Carrier tracking number that can be linked back to a customer's order."
+      - name: shipping_date
+        description: "Date the shipment was dispatched."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Date the order was dispatched."
+      - name: delivery_date
+        description: "Date the shipment was delivered."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Date the order was delivered."
       - name: shipment_status
+        description: "Shipment lifecycle status."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Current state of the shipment."
         tests:
           - accepted_values:
               values: ['delivered', 'in_transit', 'pending']
 
   - name: stg_calendar_events
+    description: "Cleaned Islamic + retail calendar events (silver). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.calendar_events"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: calendar_event_id
+        description: "Natural key of the calendar event (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a calendar event."
         tests: [not_null, unique]
+      - name: event_name
+        description: "Name of the event (e.g. Ramadan)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Name of the Islamic or retail calendar event."
+      - name: event_type
+        description: "Event type / family."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Family of the event (e.g. religious, retail)."
+      - name: start_date
+        description: "Event start date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "First day of the event window."
+      - name: end_date
+        description: "Event end date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Last day of the event window."
 
   - name: stg_marketing_events
+    description: "Cleaned marketing engagement events (silver). Indirect PII via customer_id = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1095
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.marketing_events"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: event_id
+        description: "Natural key of the marketing event (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a marketing event."
         tests: [not_null, unique]
+      - name: customer_id
+        description: "FK to the customer involved. Indirect identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Customer associated with the marketing event (indirect personal link)."
+      - name: source
+        description: "Marketing source (e.g. instagram, ads)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Channel the marketing event originated from."
+      - name: campaign_name
+        description: "Marketing campaign name."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Name of the marketing campaign."
+      - name: event_type
+        description: "Type of marketing interaction."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Type of marketing event (e.g. click, impression)."
+      - name: event_timestamp
+        description: "When the marketing event occurred."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp of the marketing event."
 
   - name: stg_rag_conversations
+    description: "Cleaned RAG assistant conversations (silver). Free-text + customer link = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1095
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.rag_conversations"]
+      update_frequency: micro_batch_10min
+      quality_tier: silver
     columns:
       - name: conversation_id
+        description: "Natural key of the conversation (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a RAG conversation."
         tests: [not_null, unique]
+      - name: customer_id
+        description: "FK to the customer in the conversation. Indirect identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Customer who engaged the RAG assistant (indirect personal link)."
+      - name: question
+        description: "Free-text question asked to the RAG assistant. Behavioral PII."
+        meta:
+          pii: true
+          pii_category: behavioral
+          classification: C3
+          business_definition: "Free-text question the customer asked the assistant; may reveal personal preferences."
+      - name: intent
+        description: "Classified intent of the question."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Derived intent label of the conversation."
+      - name: conversation_timestamp
+        description: "When the conversation occurred."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Timestamp of the RAG conversation."

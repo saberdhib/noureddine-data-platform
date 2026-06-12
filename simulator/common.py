@@ -62,12 +62,19 @@ def get_engine():
 
 
 def get_s3():
+    # Fail fast when MinIO is unreachable: bronze writes are best-effort, so we
+    # must never block OLTP generation behind boto3's default 4x retry/backoff.
     return boto3.client(
         "s3",
         endpoint_url=MINIO_ENDPOINT,
         aws_access_key_id=MINIO_ACCESS_KEY,
         aws_secret_access_key=MINIO_SECRET_KEY,
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            retries={"max_attempts": 1, "mode": "standard"},
+            connect_timeout=2,
+            read_timeout=3,
+        ),
         region_name="us-east-1",
     )
 
