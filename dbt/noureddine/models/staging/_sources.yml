@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: oltp
+    description: "OLTP transactional tables (Bloc 2 schema), populated by the simulator."
+    schema: oltp
+    tables:
+      - name: customers
+      - name: categories
+      - name: products
+      - name: inventory
+      - name: orders
+      - name: order_items
+      - name: shipments
+      - name: marketing_events
+      - name: rag_conversations
+      - name: calendar_events
