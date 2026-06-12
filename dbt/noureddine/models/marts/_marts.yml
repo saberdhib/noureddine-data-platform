@@ -2,65 +2,639 @@ version: 2
 
 models:
   - name: dim_customer
-    description: "Customer dimension (gold)."
+    description: "Customer dimension (gold). Customer-level keys, no raw email exposed = indirect PII = C3."
+    meta:
+      classification: C3
+      pii_level: indirect
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.customers"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
     columns:
       - name: customer_key
+        description: "Surrogate key of the customer (MD5 of customer_id)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Hashed surrogate key joining facts to the customer dimension."
+          transformation: "MD5(customer_id::text)."
         tests: [not_null, unique]
       - name: customer_id
+        description: "Natural key of the customer (UUID). Indirect identifier."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Unique identifier of an individual customer (indirect personal link)."
         tests: [not_null, unique]
+      - name: country
+        description: "Customer country."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "ISO country of the customer (market segmentation)."
+      - name: city
+        description: "Customer city."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "City of the customer."
+      - name: segment
+        description: "Behavioural segment derived from marketing consent."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Customer segment ('engaged' vs 'standard') derived from marketing consent."
+          transformation: "CASE WHEN consent_marketing THEN 'engaged' ELSE 'standard' END."
+      - name: acquisition_source
+        description: "Where the customer was first acquired."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Marketing source that first acquired the customer."
 
   - name: dim_product
-    description: "Product dimension (gold)."
+    description: "Product dimension (gold). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.products", "oltp.categories"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
     columns:
       - name: product_key
+        description: "Surrogate key of the product (MD5 of product_id)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Hashed surrogate key joining facts to the product dimension."
+          transformation: "MD5(product_id::text)."
         tests: [not_null, unique]
       - name: product_id
+        description: "Natural key of the product (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a product."
         tests: [not_null, unique]
+      - name: sku
+        description: "Stock keeping unit."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique stock-keeping code of the product."
+      - name: product_name
+        description: "Display name of the product."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Commercial name of the product."
+      - name: category
+        description: "Category name resolved from the categories table."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Category the product belongs to (e.g. Qamis, Grooming)."
+          transformation: "Joined from stg_categories.category_name on category_id."
+      - name: seasonality_tag
+        description: "Seasonality tag tied to the Islamic/retail calendar."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Seasonal demand tag tied to the Islamic/retail calendar."
 
   - name: dim_date
-    description: "Date spine 2023-01-01 -> 2027-12-31 (gold)."
+    description: "Date spine 2023-01-01 -> 2027-12-31 (gold). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["generated"]
+      update_frequency: static
+      quality_tier: gold
     columns:
       - name: date_key
+        description: "Integer surrogate key (YYYYMMDD)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Integer date key in YYYYMMDD form."
+          transformation: "TO_CHAR(date, 'YYYYMMDD')::integer."
         tests: [not_null, unique]
       - name: date
+        description: "Calendar date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar date of the row."
         tests: [not_null, unique]
+      - name: day
+        description: "Day of month."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Day of the month (1-31)."
+          transformation: "EXTRACT(DAY FROM date)."
+      - name: week
+        description: "ISO week number."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "ISO week number of the year."
+          transformation: "EXTRACT(WEEK FROM date)."
+      - name: month
+        description: "Month number."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Month of the year (1-12)."
+          transformation: "EXTRACT(MONTH FROM date)."
+      - name: quarter
+        description: "Quarter number."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar quarter (1-4)."
+          transformation: "EXTRACT(QUARTER FROM date)."
+      - name: year
+        description: "Year number."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar year."
+          transformation: "EXTRACT(YEAR FROM date)."
+      - name: is_weekend
+        description: "Whether the date falls on a weekend."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "True if the date is Saturday or Sunday."
+          transformation: "EXTRACT(DOW FROM date) IN (0, 6)."
 
   - name: dim_channel
-    description: "Acquisition channel dimension (gold)."
+    description: "Acquisition channel dimension (gold). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.orders"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
     columns:
       - name: channel_key
+        description: "Surrogate key of the channel (MD5 of channel_name)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Hashed surrogate key joining facts to the channel dimension."
+          transformation: "MD5(channel_name)."
         tests: [not_null, unique]
       - name: channel_name
+        description: "Acquisition channel name."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Distinct acquisition channel that drove orders."
         tests: [not_null, unique]
 
   - name: dim_calendar_event
-    description: "Islamic + retail calendar event dimension (gold)."
+    description: "Islamic + retail calendar event dimension (gold). No personal data = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.calendar_events"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
     columns:
       - name: calendar_event_key
+        description: "Surrogate key of the calendar event (MD5 of calendar_event_id)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Hashed surrogate key joining facts to the calendar-event dimension."
+          transformation: "MD5(calendar_event_id::text)."
         tests: [not_null, unique]
+      - name: calendar_event_id
+        description: "Natural key of the calendar event (UUID)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Unique identifier of a calendar event."
+      - name: event_name
+        description: "Name of the event (e.g. Ramadan)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Name of the Islamic or retail calendar event."
+      - name: event_type
+        description: "Event type / family."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Family of the event (e.g. religious, retail)."
+      - name: start_date
+        description: "Event start date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "First day of the event window."
+      - name: end_date
+        description: "Event end date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Last day of the event window."
 
   - name: fact_sales
-    description: "Sales fact at order_item grain (gold). Owned by dbt from Bloc 3."
+    description: "Sales fact at order_item grain (gold). Owned by dbt from Bloc 3. Carries customer_key = indirect PII = C3 model, body aggregate/keys."
+    meta:
+      classification: C2
+      pii_level: indirect
+      retention_days: 1825
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["oltp.orders", "oltp.order_items"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
     columns:
       - name: sale_key
+        description: "Surrogate key of the sale line (MD5 of order_item_id)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Hashed surrogate key of an order-item sale line."
+          transformation: "MD5(order_item_id::text)."
         tests: [not_null, unique]
       - name: order_id
+        description: "Natural key of the parent order."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Order the sale line belongs to."
         tests: [not_null]
       - name: customer_key
+        description: "FK to the customer dimension. Indirect personal link."
+        meta:
+          pii: true
+          pii_category: identifier
+          classification: C3
+          business_definition: "Customer who placed the order (indirect personal link via hashed key)."
         tests:
           - not_null
           - relationships:
               to: ref('dim_customer')
               field: customer_key
       - name: product_key
+        description: "FK to the product dimension."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Product sold on this line."
         tests:
           - not_null
           - relationships:
               to: ref('dim_product')
               field: product_key
       - name: date_key
+        description: "FK to the date dimension."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Order day of the sale line."
         tests:
           - not_null
           - relationships:
               to: ref('dim_date')
               field: date_key
+      - name: channel_key
+        description: "FK to the channel dimension."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Acquisition channel of the sale line."
+      - name: calendar_event_key
+        description: "FK to the calendar-event dimension (smallest window wins)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar event active on the order day (smallest window wins)."
+      - name: quantity
+        description: "Units sold on the line."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Quantity of the product sold on this line."
+      - name: revenue
+        description: "Line revenue in EUR (derived). Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Revenue of the sale line in EUR."
+          transformation: "oi.line_total."
+      - name: discount
+        description: "Allocated order discount in EUR (derived). Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Order-level discount allocated to the line in proportion to its value."
+          transformation: "COALESCE(o.discount_amount / NULLIF(o.total_amount, 0) * oi.line_total, 0)."
+      - name: shipping_cost
+        description: "Allocated shipping cost in EUR (derived). Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Order-level shipping cost split evenly across the order's lines."
+          transformation: "COALESCE(o.shipping_cost / NULLIF(lpo.n_lines, 0), 0)."
+      - name: margin
+        description: "Gross margin in EUR (derived, 60% COGS assumption). Commercially sensitive."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Gross margin of the line in EUR assuming 60% cost of goods."
+          transformation: "oi.line_total - (oi.unit_price * oi.quantity * 0.6)."
+
+  - name: v_daily_revenue
+    description: "Daily revenue / margin aggregate view (gold). Aggregate, no PII = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["gold.fact_sales", "gold.dim_date"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
+    columns:
+      - name: date
+        description: "Calendar date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Day the revenue was recognised."
+      - name: year
+        description: "Year of the date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar year of the day."
+      - name: month
+        description: "Month of the date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar month of the day."
+      - name: week
+        description: "ISO week of the date."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "ISO week number of the day."
+      - name: total_revenue
+        description: "Sum of line revenue for the day in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total revenue recognised on the day in EUR."
+          transformation: "SUM(fact_sales.revenue) grouped by day."
+      - name: total_discount
+        description: "Sum of allocated discount for the day in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total discount allocated on the day in EUR."
+          transformation: "SUM(fact_sales.discount) grouped by day."
+      - name: total_shipping
+        description: "Sum of allocated shipping for the day in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total shipping cost on the day in EUR."
+          transformation: "SUM(fact_sales.shipping_cost) grouped by day."
+      - name: total_margin
+        description: "Sum of margin for the day in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total gross margin on the day in EUR."
+          transformation: "SUM(fact_sales.margin) grouped by day."
+      - name: order_count
+        description: "Distinct orders on the day (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Number of distinct orders on the day."
+          transformation: "COUNT(DISTINCT fact_sales.order_id) grouped by day."
+      - name: units_sold
+        description: "Units sold on the day (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Total units sold on the day."
+          transformation: "SUM(fact_sales.quantity) grouped by day."
+
+  - name: v_sales_by_calendar_event
+    description: "Revenue by Islamic + retail calendar event view (gold). Aggregate, no PII = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["gold.fact_sales", "gold.dim_calendar_event", "gold.dim_date"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
+    columns:
+      - name: event_name
+        description: "Calendar event name."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Name of the calendar event the sales are attributed to."
+      - name: event_type
+        description: "Calendar event type / family."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Family of the calendar event (e.g. religious, retail)."
+      - name: year
+        description: "Year of the sales."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Calendar year of the aggregated sales."
+      - name: total_revenue
+        description: "Total revenue for the event/year in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total revenue attributed to the event in the year in EUR."
+          transformation: "SUM(fact_sales.revenue) grouped by event and year."
+      - name: total_discount
+        description: "Total discount for the event/year in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total discount attributed to the event in the year in EUR."
+          transformation: "SUM(fact_sales.discount) grouped by event and year."
+      - name: total_margin
+        description: "Total margin for the event/year in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total gross margin attributed to the event in the year in EUR."
+          transformation: "SUM(fact_sales.margin) grouped by event and year."
+      - name: order_count
+        description: "Distinct orders for the event/year (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Number of distinct orders attributed to the event in the year."
+          transformation: "COUNT(DISTINCT fact_sales.order_id) grouped by event and year."
+      - name: units_sold
+        description: "Units sold for the event/year (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Total units sold attributed to the event in the year."
+          transformation: "SUM(fact_sales.quantity) grouped by event and year."
+      - name: avg_unit_revenue
+        description: "Average revenue per unit for the event/year in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Average revenue per unit sold for the event in the year in EUR."
+          transformation: "ROUND(AVG(fact_sales.revenue / NULLIF(fact_sales.quantity, 0)), 2)."
+
+  - name: v_top_products
+    description: "Top products by revenue view (gold). Aggregate, no PII = C2."
+    meta:
+      classification: C2
+      pii_level: none
+      retention_days: 3650
+      owner_role: "Head of Operations"
+      steward_role: "Data Steward — Commerce"
+      source_systems: ["gold.fact_sales", "gold.dim_product"]
+      update_frequency: micro_batch_10min
+      quality_tier: gold
+    columns:
+      - name: sku
+        description: "Product SKU."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Stock-keeping code of the product."
+      - name: product_name
+        description: "Product display name."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Commercial name of the product."
+      - name: category
+        description: "Product category."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Category the product belongs to."
+      - name: seasonality_tag
+        description: "Product seasonality tag."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Seasonal demand tag of the product."
+      - name: total_revenue
+        description: "Total revenue for the product in EUR (derived)."
+        meta:
+          pii: false
+          pii_category: financial
+          classification: C2
+          business_definition: "Total revenue generated by the product in EUR."
+          transformation: "SUM(fact_sales.revenue) grouped by product."
+      - name: units_sold
+        description: "Units sold for the product (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Total units of the product sold."
+          transformation: "SUM(fact_sales.quantity) grouped by product."
+      - name: order_count
+        description: "Distinct orders containing the product (derived)."
+        meta:
+          pii: false
+          pii_category: none
+          classification: C2
+          business_definition: "Number of distinct orders that contained the product."
+          transformation: "COUNT(DISTINCT fact_sales.order_id) grouped by product."

@@ -22,6 +22,11 @@ on-run-end:
 
 models:
   noureddine:
+    # Persist model descriptions + column descriptions as Postgres comments,
+    # so governance annotations are queryable on the relations themselves.
+    +persist_docs:
+      relation: true
+      columns: true
     staging:
       +schema: silver
       +materialized: view
