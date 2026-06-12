@@ -27,6 +27,9 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 POSTGRES_CONN_ID = os.environ.get("NOUREDDINE_PG_CONN_ID", "noureddine_postgres")
 DBT_PROJECT_DIR = os.environ.get("DBT_PROJECT_DIR", "/opt/airflow/dbt/noureddine")
 DBT_PROFILES_DIR = os.environ.get("DBT_PROFILES_DIR", "/opt/airflow/dbt/noureddine")
+# dbt lives in an isolated venv in the airflow image (infra/airflow/Dockerfile);
+# fall back to PATH `dbt` for local runs (audit §D.1 / Fix A).
+DBT_BIN = os.environ.get("DBT_BIN", "dbt")
 ALERT_WEBHOOK_URL = os.environ.get("ALERT_WEBHOOK_URL")
 FORCE_FAILURE = os.environ.get("FORCE_FAILURE", "0") == "1"
 
@@ -126,7 +129,9 @@ with DAG(
         python_callable=check_new_data,
     )
 
-    dbt_cmd = "dbt build --no-version-check"
+    # Install packages (Elementary) then build silver/gold. Uses the isolated
+    # dbt venv via $DBT_BIN; dbt mount is read-write so deps/target can be written.
+    dbt_cmd = f"{DBT_BIN} deps --no-version-check && {DBT_BIN} build --no-version-check"
     if FORCE_FAILURE:
         # Intentional failure path for the demo screencast.
         dbt_cmd = "echo 'FORCE_FAILURE active — failing on purpose' && exit 1"
