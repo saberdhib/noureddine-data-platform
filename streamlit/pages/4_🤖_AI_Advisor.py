@@ -17,10 +17,18 @@ st.title("🤖 Conseiller IA — Réapprovisionnement")
 st.caption("Briefing d'action généré à partir des prévisions + stock + calendrier (agrégés par "
            "catégorie, aucune donnée personnelle). Option — nécessite `OPENAI_API_KEY`.")
 
-RED = int(os.getenv("STOCK_RED_DAYS", "7"))
-ORANGE = int(os.getenv("STOCK_ORANGE_DAYS", "14"))
+# Restock lead time: the days between placing an order and receiving stock. The
+# core decision: if days-of-cover < lead time, you WILL stock out before delivery.
+LEAD_TIME = int(os.getenv("RESTOCK_LEAD_TIME_DAYS", "21"))
 COVER_TARGET_DAYS = 30
-today = pd.Timestamp("2026-06-12")
+today = db.data_today()        # anchored on the data frontier (aligns with the model)
+
+with st.sidebar:
+    st.header("Paramètres")
+    LEAD_TIME = st.slider("Délai de réapprovisionnement (jours)", 1, 60, LEAD_TIME)
+    st.caption("Au‑delà de ce délai sans stock = rupture certaine.")
+st.caption(f"📆 Date pivot (frontière des données) : **{today.date().isoformat()}** · "
+           f"délai réappro : **{LEAD_TIME} j**")
 
 # --- assemble the grounding data (same sources as Stock Pilot) ---
 inv = db.inventory_by_category()
@@ -43,8 +51,16 @@ for _, r in inv.iterrows():
     pred_30d = float(fc["prediction"].sum())
     mean_daily = max(0.01, pred_30d / max(1, len(fc)))
     days_cover = round(stock / mean_daily, 1)
-    signal = "🔴 réapprovisionner" if days_cover < RED else ("🟠 surveiller" if days_cover < ORANGE else "🟢 OK")
-    suggested = max(0, round(mean_daily * COVER_TARGET_DAYS - stock))
+    # Decision factors the lead time: rupture if cover can't span the delivery delay.
+    rupture_avant_livraison = days_cover < LEAD_TIME
+    if rupture_avant_livraison:
+        signal = "🔴 commander maintenant"
+    elif days_cover < LEAD_TIME * 1.5:
+        signal = "🟠 à commander bientôt"
+    else:
+        signal = "🟢 OK"
+    # Reorder enough to cover the lead time + the next 30-day cycle.
+    suggested = max(0, round(mean_daily * (LEAD_TIME + COVER_TARGET_DAYS) - stock))
     ev = [{"evenement": e["event_name"],
            "jours_avant": int((pd.Timestamp(e["start_date"]) - today).days)}
           for _, e in upcoming_all.iterrows()]
@@ -54,12 +70,22 @@ for _, r in inv.iterrows():
         "demande_prevue_30j": round(pred_30d, 1),
         "demande_moy_jour": round(mean_daily, 2),
         "jours_de_couverture": days_cover,
+        "lead_time_days": LEAD_TIME,
+        "rupture_avant_livraison": bool(rupture_avant_livraison),
         "signal": signal,
         "suggested_reorder_units": int(suggested),
         "evenements_a_venir": ev,
     })
 
 df = pd.DataFrame(rows).sort_values("jours_de_couverture").reset_index(drop=True)
+
+# --- urgency KPIs ---
+n_rupture = int(df["rupture_avant_livraison"].sum())
+n_watch = int((df["signal"].str.startswith("🟠")).sum())
+c1, c2, c3 = st.columns(3)
+c1.metric("🔴 Rupture avant livraison", n_rupture, help="Couverture < délai de réappro")
+c2.metric("🟠 À commander bientôt", n_watch)
+c3.metric("🟢 OK", int((df["signal"].str.startswith("🟢")).sum()))
 
 # --- the grounding table (useful even without an API key) ---
 st.subheader("Données (ce que voit le conseiller)")

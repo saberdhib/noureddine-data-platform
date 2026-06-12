@@ -280,6 +280,7 @@ services:
       # Optional LLM Stock Advisor (page 4); empty key -> feature stays disabled.
       OPENAI_API_KEY:     ${OPENAI_API_KEY:-}
       OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
+      RESTOCK_LEAD_TIME_DAYS: ${RESTOCK_LEAD_TIME_DAYS:-21}
     ports:
       - "${STREAMLIT_PORT:-8501}:8501"
     networks:

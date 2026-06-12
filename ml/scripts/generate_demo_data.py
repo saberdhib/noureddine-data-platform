@@ -63,6 +63,24 @@ def _uid(label: str) -> uuid.UUID:
     return uuid.uuid5(NS, label)
 
 
+def _reset_gold_from_ddl(conn) -> None:
+    """Drop & recreate the gold schema (tables + views) from the init DDL.
+
+    Guarantees the GENERATED-IDENTITY surrogate keys exist, so this fixture works
+    whether gold was last built by the DDL or by dbt (whose tables lack defaults).
+    """
+    init = Path(__file__).resolve().parents[2] / "infra" / "postgres" / "init"
+    conn.execute(text("DROP SCHEMA IF EXISTS gold CASCADE"))
+    conn.execute(text("CREATE SCHEMA gold"))
+    for fname in ("03_create_tables_warehouse.sql", "05_create_views.sql"):
+        sql = (init / fname).read_text()
+        for stmt in (s.strip() for s in sql.split(";")):
+            # skip empty / comment-only chunks (file headers between statements)
+            code = "\n".join(l for l in stmt.splitlines() if l.strip() and not l.strip().startswith("--"))
+            if code.strip():
+                conn.execute(text(stmt))
+
+
 def black_friday(year: int) -> date:
     d = date(year, 11, 30)
     while d.weekday() != 4:  # Friday
@@ -116,16 +134,18 @@ def demand_for(category: str, base: float, d: date) -> int:
     return max(0, int(round(base * mult * max(0.4, noise))))
 
 
-def main():
+def main(end_date: date | None = None, tight_inventory: bool = False):
     engine = get_engine()
     start = date(2023, 6, 1)
-    end = date(2026, 6, 11)  # day before "today" (2026-06-12)
+    # `end` = last day of data. The forecast anchors at end+1, so choosing `end`
+    # ~14 days before an Eid makes the J+30 forecast straddle the demand spike.
+    end = end_date or date(2026, 6, 11)
 
     with engine.begin() as conn:
-        print("Resetting gold facts/dims and oltp calendar/inventory/products ...")
-        conn.execute(text("TRUNCATE gold.fact_sales RESTART IDENTITY CASCADE"))
-        for t in ("dim_product", "dim_date", "dim_channel", "dim_customer", "dim_calendar_event"):
-            conn.execute(text(f"TRUNCATE gold.{t} RESTART IDENTITY CASCADE"))
+        print("Resetting gold (DDL schema, identity keys) + oltp products/inventory/calendar ...")
+        # Recreate gold from the canonical DDL so the *_key identity columns exist
+        # even if dbt previously replaced these tables (its dim_*.key has no default).
+        _reset_gold_from_ddl(conn)
         conn.execute(text("TRUNCATE oltp.calendar_events CASCADE"))
         conn.execute(text("DELETE FROM oltp.inventory"))
         conn.execute(text("DELETE FROM oltp.order_items"))
@@ -146,8 +166,10 @@ def main():
                 "VALUES (:i,:s,:n,:c,:p,:co,:se)"),
                 {"i": str(pid), "s": f"SKU-{cat[:4].upper()}-001", "n": f"{cat} Signature",
                  "c": str(cat_ids[cat]), "p": price, "co": cost, "se": season})
-            # inventory tuned so Stock Pilot shows a mix of green/orange/red signals
-            stock = int(RNG.integers(60, 900))
+            # inventory: default = mixed signals; tight = only a few days of base
+            # demand so that, with the Eid uplift + lead time, most categories show
+            # "rupture avant livraison" (punchy pre-Eid demo).
+            stock = int(_b * RNG.uniform(5, 18)) if tight_inventory else int(RNG.integers(60, 900))
             conn.execute(text(
                 "INSERT INTO oltp.inventory(product_id, stock_quantity, reorder_threshold) VALUES (:i,:q,:t)"),
                 {"i": str(pid), "q": stock, "t": 50})
@@ -248,4 +270,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="Synthetic warehouse fixture generator")
+    ap.add_argument("--end", help="last data day YYYY-MM-DD (forecast anchors at end+1)")
+    ap.add_argument("--tight", action="store_true", help="tight inventory (pre-Eid demo)")
+    a = ap.parse_args()
+    main(end_date=date.fromisoformat(a.end) if a.end else None, tight_inventory=a.tight)
