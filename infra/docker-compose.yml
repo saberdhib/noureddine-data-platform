@@ -144,6 +144,7 @@ services:
       <<: *airflow-env
     volumes:
       - ../dags:/opt/airflow/dags:ro
+      - ../dbt:/opt/airflow/dbt:ro
       - airflow_logs:/opt/airflow/logs
     ports:
       - "${AIRFLOW_PORT:-8080}:8080"
@@ -170,6 +171,74 @@ services:
       retries: 10
       start_period: 60s
 
+  # ---------------------------------------------------------------------------
+  # Data Simulator — Bloc 3 (SIM_MODE=history|drip)
+  # history: one-shot backfill of ~3 years data then exits
+  # drip:    continuous injection every DRIP_INTERVAL_SECONDS
+  # ---------------------------------------------------------------------------
+  simulator:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: noureddine_simulator
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SIM_MODE: ${SIM_MODE:-history}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-noureddine_user}:${POSTGRES_PASSWORD:-change_me_postgres}@postgres:5432/${POSTGRES_DB:-noureddine}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio_admin}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change_me_minio}
+      BRONZE_BUCKET: bronze
+      DRIP_INTERVAL_SECONDS: ${DRIP_INTERVAL_SECONDS:-10}
+      SIM_N_CUSTOMERS: ${SIM_N_CUSTOMERS:-15000}
+      SIM_N_PRODUCTS: ${SIM_N_PRODUCTS:-300}
+      SIM_N_ORDERS: ${SIM_N_ORDERS:-20000}
+    networks:
+      - noureddine_net
+    profiles:
+      - simulator
+
+  # ---------------------------------------------------------------------------
+  # Grafana — pipeline monitoring dashboards (Postgres datasource only, ADR 0008)
+  # In production AWS the equivalent would be CloudWatch; Grafana is free/self-hosted.
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: noureddine_grafana
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change_me_grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: ""
+      # Pass PG creds so datasource provisioning can interpolate them
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-noureddine}
+      POSTGRES_USER: ${POSTGRES_USER:-noureddine_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    networks:
+      - noureddine_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health | grep -q ok"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
 # ---------------------------------------------------------------------------
 # Named volumes & network
 # ---------------------------------------------------------------------------
@@ -178,6 +247,7 @@ volumes:
   minio_data:
   pgadmin_data:
   airflow_logs:
+  grafana_data:
 
 networks:
   noureddine_net:

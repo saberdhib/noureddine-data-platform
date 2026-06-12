@@ -1,0 +1,122 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "title": "NOUREDDINE — Pipeline & Data Quality",
+  "uid": "noureddine-pipeline",
+  "tags": ["bloc3", "noureddine"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-90d", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Silver — staging row count (orders)",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS value FROM silver.stg_orders",
+          "format": "table",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Gold — fact_sales rows",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS value FROM gold.fact_sales",
+          "format": "table",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Last pipeline run status",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT status AS value FROM monitoring.pipeline_runs ORDER BY created_at DESC LIMIT 1",
+          "format": "table",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Pipeline success rate (last 50 runs)",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "rawSql": "SELECT 100.0 * AVG(CASE WHEN status='success' THEN 1 ELSE 0 END) AS value FROM (SELECT status FROM monitoring.pipeline_runs ORDER BY created_at DESC LIMIT 50) s",
+          "format": "table",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "fact_sales revenue over time",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT d.date AS time, SUM(f.revenue) AS revenue FROM gold.fact_sales f JOIN gold.dim_date d ON f.date_key = d.date_key GROUP BY d.date ORDER BY d.date",
+          "format": "time_series",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Rows processed per pipeline run",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT created_at AS time, rows_processed FROM monitoring.pipeline_runs ORDER BY created_at",
+          "format": "time_series",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Revenue by calendar event (seasonality)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(ce.event_name, 'Baseline') AS event, SUM(f.revenue) AS revenue FROM gold.fact_sales f LEFT JOIN gold.dim_calendar_event ce ON f.calendar_event_key = ce.calendar_event_key GROUP BY 1 ORDER BY revenue DESC",
+          "format": "table",
+          "rawQuery": true
+        }
+      ]
+    }
+  ],
+  "__inputs": [
+    {
+      "name": "DS_POSTGRESQL",
+      "label": "PostgreSQL",
+      "type": "datasource",
+      "pluginId": "postgres"
+    }
+  ]
+}
