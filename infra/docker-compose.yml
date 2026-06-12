@@ -24,9 +24,11 @@ x-airflow-env: &airflow-env
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
   DRIFT_THRESHOLD: ${DRIFT_THRESHOLD:-0.5}
   MAPE_THRESHOLD: ${MAPE_THRESHOLD:-0.30}
-  # Bloc 4: install the ML/monitoring deps into the Airflow image at startup
-  # so retrain_model / monitor_model tasks can run (laptop-friendly, no custom image).
-  _PIP_ADDITIONAL_REQUIREMENTS: "lightgbm pandas numpy scikit-learn shap scipy sqlalchemy psycopg2-binary joblib matplotlib pyarrow evidently"
+  # Bloc 3: the ingest_orders DAG runs dbt via this isolated-venv binary (see
+  # infra/airflow/Dockerfile). dbt + ML libs are baked into noureddine-airflow:local.
+  DBT_BIN: /opt/dbt-venv/bin/dbt
+  DBT_PROJECT_DIR: /opt/airflow/dbt/noureddine
+  DBT_PROFILES_DIR: /opt/airflow/dbt/noureddine
 
 services:
 
@@ -145,7 +147,10 @@ services:
   # ADR-0004: LocalExecutor + PostgreSQL backend chosen for simplicity at skeleton stage.
   # ---------------------------------------------------------------------------
   airflow:
-    image: apache/airflow:2.9.1
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: noureddine-airflow:local
     container_name: noureddine_airflow
     restart: unless-stopped
     depends_on:
@@ -155,7 +160,10 @@ services:
       <<: *airflow-env
     volumes:
       - ../dags:/opt/airflow/dags:ro
-      - ../dbt:/opt/airflow/dbt:ro
+      # dbt mounted read-WRITE so the DAG can run `dbt deps` (writes dbt_packages/)
+      # and `dbt build` (writes target/). ml/models is rw here so the scheduler can
+      # promote new models; the api service mounts it read-only.
+      - ../dbt:/opt/airflow/dbt
       - airflow_logs:/opt/airflow/logs
       # Bloc 4: the ML package + monitoring code + shared models, importable by the DAGs.
       - ../ml:/opt/airflow/ml

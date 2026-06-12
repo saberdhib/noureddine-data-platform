@@ -1,3 +1,6 @@
 packages:
+  # Range (not an exact pin) so `dbt deps` resolves to whatever 0.14.x the hub
+  # actually publishes — 0.14.3 does not exist (the line jumps 0.14.1 -> 0.15.0),
+  # which made the CI `dbt deps` step fail. 0.14.x is dbt-1.8 compatible.
   - package: elementary-data/elementary
-    version: 0.14.3
+    version: [">=0.14.0", "<0.15.0"]

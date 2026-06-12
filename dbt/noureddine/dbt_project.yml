@@ -17,8 +17,10 @@ clean-targets:
   - "dbt_packages"
 
 # Elementary uploads dbt run/test artifacts for the data-quality layer (ADR 0007).
+# Feature-flagged so parse/compile (CI, or any env without the hub package) can
+# disable it with `--vars '{enable_elementary: false}'`.
 on-run-end:
-  - "{{ elementary.upload_dbt_artifacts() }}"
+  - "{% if var('enable_elementary', true) %}{{ elementary.upload_dbt_artifacts() }}{% endif %}"
 
 models:
   noureddine:

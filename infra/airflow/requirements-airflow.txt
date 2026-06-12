@@ -1,0 +1,23 @@
+# ML + monitoring libraries for the Airflow image (Bloc 3 + Bloc 4 orchestrator).
+# These are imported IN-PROCESS by the PythonOperators (retrain_model /
+# monitor_model), so they must live in the Airflow environment. Ranges (not exact
+# pins) let pip resolve a set compatible with Airflow 2.9.1's own constraints
+# (e.g. pandas<2.2, numpy<2) — the same libraries the previous
+# _PIP_ADDITIONAL_REQUIREMENTS installed at runtime, now baked + reproducible.
+#
+# dbt is intentionally NOT here — it is installed into an isolated venv in the
+# Dockerfile (/opt/dbt-venv) to avoid clashing with Airflow's pinned deps.
+#
+# NOTE: this image must be built/verified on a Docker host. If Airflow-core
+# constraints conflict with evidently's numpy requirement, install evidently into
+# a second isolated venv and call monitor_model via ExternalPythonOperator.
+lightgbm>=4,<5
+pandas>=2,<3
+numpy>=1.26,<3
+scikit-learn>=1.4,<2
+shap>=0.45,<1
+scipy>=1.11
+joblib>=1.3,<2
+matplotlib>=3.7,<4
+pyarrow>=15
+evidently>=0.7,<0.8
