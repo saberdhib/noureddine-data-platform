@@ -131,6 +131,10 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+      # PassFile referenced by servers.json — pgAdmin reads it when it imports the
+      # server on first boot and stores the password internally, so the connection
+      # opens without prompting.
+      - ./pgadmin/pgpass:/pgpass:ro
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     networks:
