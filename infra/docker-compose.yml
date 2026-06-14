@@ -159,7 +159,11 @@ services:
     environment:
       <<: *airflow-env
     volumes:
-      - ../dags:/opt/airflow/dags:ro
+      # macOS/VirtioFS workaround: Airflow's locked reads of bind-mounted DAG files
+      # raise "OSError [Errno 35] Resource deadlock avoided". A named volume lives on
+      # the VM's native fs (no FUSE), so reads are safe and it persists across recreate.
+      # Load DAGs into it with: bash infra/scripts/load-dags.sh
+      - airflow_dags:/opt/airflow/dags
       # dbt mounted read-WRITE so the DAG can run `dbt deps` (writes dbt_packages/)
       # and `dbt build` (writes target/). ml/models is rw here so the scheduler can
       # promote new models; the api service mounts it read-only.
@@ -334,6 +338,7 @@ volumes:
   minio_data:
   pgadmin_data:
   airflow_logs:
+  airflow_dags:
   grafana_data:
 
 networks:
