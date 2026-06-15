@@ -34,6 +34,10 @@ Nikah season) and retail peaks (Black Friday, Summer Sale).
 | Bloc 3 | Data Pipelines (simulator → Airflow → dbt → Elementary → Grafana) | ✅ Done |
 | Bloc 4 | AI / MLOps (LightGBM, FastAPI, Evidently, Streamlit + optional AI advisor) | ✅ Done |
 
+loom bloc 4 : https://www.loom.com/share/d9b5c4ff8416433885deb31b3d0b5587
+loom bloc 3 : https://www.loom.com/share/3b524ad92c464d01810bff70af9de74b
+loom bloc 2 : https://www.loom.com/share/5a1b91c89aad46088827c4c6d30ce2c3
+
 > Two audit passes hardened the platform: **`AUDIT_REPORT.md`** (Blocs 2+3) and
 > **`AUDIT_REPORT_BLOC4.md`** (Bloc 4) — each with a component-by-component status and a
 > copy-paste **manual testing guide**.
