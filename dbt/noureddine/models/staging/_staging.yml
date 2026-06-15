@@ -470,7 +470,8 @@ models:
           business_definition: "Current state of the shipment."
         tests:
           - accepted_values:
-              values: ['delivered', 'in_transit', 'pending']
+              # 'shipped' = handed to carrier (used by the seed + a valid order_status too)
+              values: ['delivered', 'in_transit', 'pending', 'shipped']
 
   - name: stg_calendar_events
     description: "Cleaned Islamic + retail calendar events (silver). No personal data = C2."

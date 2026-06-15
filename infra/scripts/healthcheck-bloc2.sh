@@ -117,7 +117,7 @@ for bucket in bronze silver gold; do
         ok "bucket '${bucket}': accessible (HTTP ${status_code})"
     else
         bucket_exists=$(docker exec noureddine_minio \
-            /bin/sh -c "ls /data/${bucket} 2>/dev/null && echo yes || echo no" 2>/dev/null || echo "no")
+            /bin/sh -c "[ -d /data/${bucket} ] && echo yes || echo no" 2>/dev/null || echo "no")
         if [[ "${bucket_exists}" == "yes" ]]; then
             ok "bucket '${bucket}': exists (verified via volume)"
         else
@@ -139,7 +139,7 @@ dag_present=$(docker exec noureddine_airflow airflow dags list 2>/dev/null | gre
 if [[ "${dag_present}" -ge 1 ]]; then
     ok "DAG 'ingest_orders': visible to scheduler"
 else
-    fail "DAG 'ingest_orders': not visible (recreate airflow with custom image + dags mount)"
+    fail "DAG 'ingest_orders': not visible"
 fi
 
 echo ""

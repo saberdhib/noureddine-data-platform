@@ -122,7 +122,7 @@ for bucket in bronze silver gold; do
     else
         # Try via docker exec on minio container
         bucket_exists=$(docker exec noureddine_minio \
-            /bin/sh -c "ls /data/${bucket} 2>/dev/null && echo yes || echo no" 2>/dev/null || echo "no")
+            /bin/sh -c "[ -d /data/${bucket} ] && echo yes || echo no" 2>/dev/null || echo "no")
         if [[ "${bucket_exists}" == "yes" ]]; then
             ok "bucket '${bucket}': exists (verified via volume)"
         else
