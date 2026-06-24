@@ -285,7 +285,9 @@ services:
       API_URL:           http://api:8000
       API_KEY:           ${API_KEY:-noureddine-dev-key}
       # Optional LLM Stock Advisor (page 4); empty key -> feature stays disabled.
+      # OPENAI_BASE_URL lets you use any OpenAI-compatible provider (DeepSeek / xAI Grok).
       OPENAI_API_KEY:     ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL:    ${OPENAI_BASE_URL:-}
       OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
       RESTOCK_LEAD_TIME_DAYS: ${RESTOCK_LEAD_TIME_DAYS:-21}
     ports:

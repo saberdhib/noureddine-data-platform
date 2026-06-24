@@ -83,7 +83,10 @@ def generate_briefing(rows: List[Dict], today_iso: str, *, model: str | None = N
     from openai import OpenAI  # imported lazily so the page loads without the package
 
     payload = build_payload(rows, today_iso)
-    client = OpenAI()  # reads OPENAI_API_KEY from the environment
+    # reads OPENAI_API_KEY from the environment; OPENAI_BASE_URL lets you point at any
+    # OpenAI-compatible provider (DeepSeek: https://api.deepseek.com, xAI Grok:
+    # https://api.x.ai/v1). Unset -> default OpenAI endpoint.
+    client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None)
     resp = client.chat.completions.create(
         model=model or OPENAI_MODEL,
         temperature=0.2,
