@@ -13,6 +13,7 @@ import streamlit as st
 from lib import ai_advisor, api_client, db
 
 st.set_page_config(page_title="AI Advisor", page_icon="🤖", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("🤖 Conseiller IA — Réapprovisionnement")
 st.caption("Briefing d'action généré à partir des prévisions + stock + calendrier (agrégés par "
            "catégorie, aucune donnée personnelle). Option — nécessite `OPENAI_API_KEY`.")

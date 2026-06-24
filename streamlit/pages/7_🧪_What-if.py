@@ -11,6 +11,7 @@ import streamlit as st
 from lib import api_client, db
 
 st.set_page_config(page_title="What-if", page_icon="🧪", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("🧪 What-if — Simulateur de pilotage")
 st.caption("Ajuste le délai de réappro et un coup de pouce promo, et observe l'impact sur la "
            "couverture et le risque de rupture par catégorie. Prévisions via l'API, agrégats only.")

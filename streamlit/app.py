@@ -9,6 +9,7 @@ import streamlit as st
 from lib import api_client
 
 st.set_page_config(page_title="NOUREDDINE — Data Platform", page_icon="🧕", layout="wide")
+from lib import brand as _brand; _brand.apply()
 
 st.title("🧕 NOUREDDINE — Data Platform")
 st.caption("Bloc 4 · AI/MLOps · Demand forecasting & stock piloting against the Islamic cultural calendar")

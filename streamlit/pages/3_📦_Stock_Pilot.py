@@ -12,6 +12,7 @@ import streamlit as st
 from lib import api_client, db
 
 st.set_page_config(page_title="Stock Pilot", page_icon="📦", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("📦 Stock Pilot")
 st.caption("Inventory vs predicted demand — restock decision support.")
 

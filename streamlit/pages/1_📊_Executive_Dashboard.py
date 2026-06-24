@@ -8,6 +8,7 @@ import streamlit as st
 from lib import db, insights, llm
 
 st.set_page_config(page_title="Executive Dashboard", page_icon="📊", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("📊 Executive Dashboard")
 st.caption("Business KPIs from the governed `gold` star schema.")
 

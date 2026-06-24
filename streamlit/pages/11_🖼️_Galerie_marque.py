@@ -9,6 +9,7 @@ import streamlit as st
 from lib import assets
 
 st.set_page_config(page_title="Galerie marque", page_icon="🖼️", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("🖼️ Galerie marque (Digital Asset Manager)")
 st.caption("Médias marketing gouvernés dans le data lake (bucket MinIO `brand`) : logo, visuels "
            "de campagne, lookbook, packshots. Contenu marketing — aucune donnée client.")

@@ -14,6 +14,7 @@ import io
 import os
 
 TXT2IMG_MODEL = os.getenv("STUDIO_IMAGE_MODEL", "Qwen/Qwen-Image-2512")
+EDIT_MODEL = os.getenv("STUDIO_EDIT_MODEL", "black-forest-labs/FLUX.1-Kontext-dev")
 IMG2VID_MODEL = os.getenv("STUDIO_VIDEO_MODEL", "Lightricks/LTX-2")
 
 
@@ -33,6 +34,14 @@ def _client():
 def text_to_image(prompt: str, *, model: str | None = None) -> bytes:
     """Generate a campaign visual; returns PNG bytes."""
     img = _client().text_to_image(prompt, model=model or TXT2IMG_MODEL)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def image_to_image(image_bytes: bytes, prompt: str, *, model: str | None = None) -> bytes:
+    """Generate a variation/edit from a source image; returns PNG bytes."""
+    img = _client().image_to_image(image_bytes, prompt=prompt, model=model or EDIT_MODEL)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

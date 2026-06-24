@@ -12,6 +12,7 @@ import streamlit as st
 from lib import api_client, calendar_overlays, db, insights, llm
 
 st.set_page_config(page_title="Demand Forecast", page_icon="📈", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("📈 Demand Forecast")
 st.caption("J-90 history + J+30 forecast with confidence band and Islamic-calendar overlays.")
 

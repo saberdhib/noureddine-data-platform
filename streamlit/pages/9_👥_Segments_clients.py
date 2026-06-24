@@ -13,6 +13,7 @@ import streamlit as st
 from lib import db, llm, segments
 
 st.set_page_config(page_title="Segments clients", page_icon="👥", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("👥 Segments clients (RFM + clustering)")
 st.caption("Segmentation comportementale des clients (Récence, Fréquence, Montant, panier, promo, "
            "ancienneté) par KMeans. Clés pseudonymisées ; l'IA ne voit que des profils agrégés.")

@@ -14,6 +14,7 @@ import streamlit as st
 from lib import db, insights, llm
 
 st.set_page_config(page_title="Reco Marketing", page_icon="📣", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("📣 Recommandations marketing")
 st.caption("Détecte les chutes de ventes et le stock dormant (en valeur), puis propose des actions "
            "marketing calées sur le calendrier. Données agrégées par catégorie, aucune PII.")

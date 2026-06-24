@@ -11,6 +11,7 @@ import streamlit as st
 from lib import db, insights, llm
 
 st.set_page_config(page_title="Demande à tes données", page_icon="💬", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("💬 Demande à tes données")
 st.caption("Pose une question métier en français — la réponse est calculée à partir des données "
            "agrégées du `gold` (CA, demande, stock, calendrier). Aucune donnée personnelle (DPIA #2).")

@@ -13,6 +13,7 @@ import streamlit as st
 from lib import db, insights
 
 st.set_page_config(page_title="Centre d'alertes", page_icon="🚨", layout="wide")
+from lib import brand as _brand; _brand.apply()
 st.title("🚨 Centre d'alertes")
 st.caption("Vue unique de pilotage : ruptures, sur-stock, dérive du modèle et état des pipelines.")
 
