@@ -62,3 +62,7 @@ ml/models/retrain_jobs/
 # Evidently reports (large generated HTML) — keep only the README
 monitoring/evidently/reports/*
 !monitoring/evidently/reports/.gitkeep
+
+# Brand assets (binaries live in MinIO, not git)
+brand-assets/*
+!brand-assets/README.md

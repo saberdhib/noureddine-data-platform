@@ -115,7 +115,8 @@ services:
         mc mb --ignore-existing local/bronze &&
         mc mb --ignore-existing local/silver &&
         mc mb --ignore-existing local/gold &&
-        echo 'Buckets bronze/silver/gold ready.' &&
+        mc mb --ignore-existing local/brand &&
+        echo 'Buckets bronze/silver/gold/brand ready.' &&
         exit 0
       "
     restart: "no"
