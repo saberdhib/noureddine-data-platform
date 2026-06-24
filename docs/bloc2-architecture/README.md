@@ -16,6 +16,7 @@
 - ADR-0003: PostgreSQL as single OLTP + warehouse engine
 - ADR-0004: Airflow skeleton executor choice
 - ADR-0005: Medallion schemas inside PostgreSQL
+- ADR-0016: Cloud target — RDS Multi-AZ + S3 for durability & availability
 
 ## Consigne → Repo Structure Mapping
 
