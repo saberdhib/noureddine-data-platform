@@ -9,3 +9,4 @@ openai>=1.0,<2          # optional — AI Advisor page only (ADR 0015)
 scikit-learn>=1.4,<2    # customer segmentation (RFM + KMeans), Segments clients page
 huggingface_hub>=0.34,<1  # Marketing Studio: text-to-image / image-to-video (fal-ai)
 Pillow>=10,<12          # handle generated images (PIL) in the Marketing Studio
+minio>=7,<8             # Brand gallery (DAM): read media from the MinIO 'brand' bucket
