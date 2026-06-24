@@ -289,6 +289,9 @@ services:
       OPENAI_API_KEY:     ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL:    ${OPENAI_BASE_URL:-}
       OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
+      # HF Inference Providers: bill an org (X-HF-Bill-To) when the token has org-level
+      # inference permission instead of user-level. Leave empty for OpenAI/DeepSeek/Grok.
+      HF_BILL_TO:         ${HF_BILL_TO:-}
       RESTOCK_LEAD_TIME_DAYS: ${RESTOCK_LEAD_TIME_DAYS:-21}
     ports:
       - "${STREAMLIT_PORT:-8501}:8501"

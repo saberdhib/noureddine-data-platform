@@ -85,8 +85,15 @@ def generate_briefing(rows: List[Dict], today_iso: str, *, model: str | None = N
     payload = build_payload(rows, today_iso)
     # reads OPENAI_API_KEY from the environment; OPENAI_BASE_URL lets you point at any
     # OpenAI-compatible provider (DeepSeek: https://api.deepseek.com, xAI Grok:
-    # https://api.x.ai/v1). Unset -> default OpenAI endpoint.
-    client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None)
+    # https://api.x.ai/v1, HF router: https://router.huggingface.co/v1). Unset -> OpenAI.
+    # HF_BILL_TO routes Hugging Face Inference-Providers billing to an org (X-HF-Bill-To
+    # header) — needed when the token has org-level (not user-level) inference permission.
+    _headers = {}
+    _bill_to = os.getenv("HF_BILL_TO")
+    if _bill_to:
+        _headers["X-HF-Bill-To"] = _bill_to
+    client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None,
+                    default_headers=_headers or None)
     resp = client.chat.completions.create(
         model=model or OPENAI_MODEL,
         temperature=0.2,
