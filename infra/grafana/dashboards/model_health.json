@@ -1,5 +1,7 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -8,217 +10,704 @@
   "liveNow": false,
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["bloc4", "mlops", "model-health"],
-  "templating": { "list": [] },
-  "time": { "from": "now-90d", "to": "now" },
+  "tags": [
+    "bloc4",
+    "mlops",
+    "model-health"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "",
   "title": "NOUREDDINE — Model Health (Bloc 4)",
   "uid": "noureddine_model_health",
-  "version": 2,
+  "version": 3,
   "panels": [
     {
       "type": "row",
       "title": "🚨 Alertes (état temps réel)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false
     },
     {
       "type": "stat",
       "title": "🚨 Drift (seuil 0.5)",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [ { "type": "value", "options": {
-            "0": { "text": "✅ OK", "color": "green", "index": 0 },
-            "1": { "text": "🔴 DRIFT", "color": "red", "index": 1 }
-          } } ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
-        }, "overrides": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ OK",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "🔴 DRIFT",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT CASE WHEN drift_score >= 0.5 THEN 1 ELSE 0 END AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
-      } ]
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT CASE WHEN drift_score >= 0.5 THEN 1 ELSE 0 END AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "🚨 MAPE (seuil 0.30)",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [ { "type": "value", "options": {
-            "0": { "text": "✅ OK", "color": "green", "index": 0 },
-            "1": { "text": "🔴 MAPE", "color": "red", "index": 1 }
-          } } ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
-        }, "overrides": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ OK",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "🔴 MAPE",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT CASE WHEN mape >= 0.30 THEN 1 ELSE 0 END AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
-      } ]
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT CASE WHEN mape >= 0.30 THEN 1 ELSE 0 END AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "🚦 Dernier pipeline",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [ { "type": "value", "options": {
-            "0": { "text": "✅ success", "color": "green", "index": 0 },
-            "1": { "text": "🔴 échec", "color": "red", "index": 1 }
-          } } ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
-        }, "overrides": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ success",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "🔴 échec",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT CASE WHEN status='success' THEN 0 ELSE 1 END AS value FROM monitoring.pipeline_runs ORDER BY created_at DESC LIMIT 1;"
-      } ]
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT CASE WHEN status='success' THEN 0 ELSE 1 END AS value FROM monitoring.pipeline_runs ORDER BY created_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "🕒 Fraîcheur données (h)",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "h", "decimals": 1,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "orange", "value": 24 },
-            { "color": "red", "value": 48 } ] }
-        }, "overrides": []
+          "unit": "h",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 24
+              },
+              {
+                "color": "red",
+                "value": 48
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - MAX(created_at)))/3600.0 AS value FROM monitoring.pipeline_runs WHERE status='success';"
-      } ]
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - MAX(created_at)))/3600.0 AS value FROM monitoring.pipeline_runs WHERE status='success';"
+        }
+      ]
     },
     {
       "type": "gauge",
       "title": "Latest drift score",
-      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 5 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "min": 0, "max": 1, "unit": "percentunit",
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "orange", "value": 0.3 },
-            { "color": "red", "value": 0.5 }
-          ] }
-        }, "overrides": []
+          "min": 0,
+          "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "red",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT drift_score AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
-      } ]
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT drift_score AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Latest MAPE",
-      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 5 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 5
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "orange", "value": 0.2 },
-            { "color": "red", "value": 0.3 }
-          ] }
-        }, "overrides": []
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.2
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT mape AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
-      } ]
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT mape AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Last drift report",
-      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 5 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-      "fieldConfig": { "defaults": { "unit": "dateTimeFromNow" }, "overrides": [] },
-      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT (EXTRACT(EPOCH FROM measured_at)*1000)::bigint AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
-      } ]
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT (EXTRACT(EPOCH FROM measured_at)*1000)::bigint AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Last training (promotion)",
-      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 5 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-      "fieldConfig": { "defaults": { "unit": "dateTimeFromNow" }, "overrides": [] },
-      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT (EXTRACT(EPOCH FROM occurred_at)*1000)::bigint AS value FROM monitoring.retrain_events WHERE promoted = true ORDER BY occurred_at DESC LIMIT 1;"
-      } ]
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT (EXTRACT(EPOCH FROM occurred_at)*1000)::bigint AS value FROM monitoring.retrain_events WHERE promoted = true ORDER BY occurred_at DESC LIMIT 1;"
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "MAPE over time",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 12 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "always" } }, "overrides": [] },
-      "targets": [ {
-        "refId": "A", "format": "time_series", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT measured_at AS time, mape AS \"MAPE\" FROM monitoring.model_metrics WHERE $__timeFilter(measured_at) ORDER BY measured_at;"
-      } ]
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT measured_at AS time, mape AS \"MAPE\" FROM monitoring.model_metrics WHERE $__timeFilter(measured_at) ORDER BY measured_at;"
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Drift score over time",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 12 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "always" } }, "overrides": [] },
-      "targets": [ {
-        "refId": "A", "format": "time_series", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT measured_at AS time, drift_score AS \"Drift score\" FROM monitoring.model_metrics WHERE $__timeFilter(measured_at) ORDER BY measured_at;"
-      } ]
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT measured_at AS time, drift_score AS \"Drift score\" FROM monitoring.model_metrics WHERE $__timeFilter(measured_at) ORDER BY measured_at;"
+        }
+      ]
     },
     {
       "type": "table",
       "title": "Retraining events (promote / no-promote)",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 21 },
-      "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true,
-        "datasource": { "type": "postgres", "uid": "noureddine_pg" },
-        "rawSql": "SELECT occurred_at AS \"time\", model_version, current_mape, new_mape, promoted, reason FROM monitoring.retrain_events ORDER BY occurred_at DESC LIMIT 50;"
-      } ]
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT occurred_at AS \"time\", model_version, current_mape, new_mape, promoted, reason FROM monitoring.retrain_events ORDER BY occurred_at DESC LIMIT 50;"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "RMSE (erreur absolue, dernier modèle)",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 30
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT rmse AS value FROM monitoring.model_metrics ORDER BY measured_at DESC LIMIT 1;"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RMSE over time (fairer than MAPE on sparse demand)",
+      "gridPos": {
+        "h": 6,
+        "w": 16,
+        "x": 8,
+        "y": 30
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "noureddine_pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "noureddine_pg"
+          },
+          "rawSql": "SELECT measured_at AS time, rmse AS \"RMSE\" FROM monitoring.model_metrics WHERE $__timeFilter(measured_at) ORDER BY measured_at;"
+        }
+      ]
     }
   ]
 }
