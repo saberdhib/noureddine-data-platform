@@ -32,6 +32,10 @@ x-airflow-env: &airflow-env
   DBT_BIN: /opt/dbt-venv/bin/dbt
   DBT_PROJECT_DIR: /opt/airflow/dbt/noureddine
   DBT_PROFILES_DIR: /opt/airflow/dbt/noureddine
+  # Bloc 3/4: export_to_lake DAG writes silver/gold Parquet to MinIO (S3 API).
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio_admin}
+  MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change_me_minio}
 
 services:
 
