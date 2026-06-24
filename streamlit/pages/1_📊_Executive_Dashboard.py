@@ -1,10 +1,11 @@
 """Page 1 — Executive Dashboard (Bloc 4). KPIs from the gold layer."""
+import json
 from datetime import date, timedelta
 
 import plotly.express as px
 import streamlit as st
 
-from lib import db
+from lib import db, insights, llm
 
 st.set_page_config(page_title="Executive Dashboard", page_icon="📊", layout="wide")
 st.title("📊 Executive Dashboard")
@@ -54,3 +55,27 @@ if not cat.empty:
     fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
     st.dataframe(cat, use_container_width=True, hide_index=True)
+
+# --- AI executive summary (optional LLM layer; aggregates only, no PII) ---------
+st.divider()
+st.subheader("🪄 Résumé exécutif (IA)")
+if not llm.is_enabled():
+    st.info("🔑 Active la clé LLM (`OPENAI_API_KEY` dans `.env`) pour générer un résumé automatique.")
+else:
+    st.caption(f"Modèle : `{llm.OPENAI_MODEL}` · données agrégées uniquement (aucune PII).")
+    if st.button("Générer le résumé exécutif", type="primary"):
+        with st.spinner("Analyse des KPIs en cours…"):
+            try:
+                snap = insights.executive_snapshot(start_s, end_s)
+                sys = (
+                    "Tu es analyste business pour NOUREDDINE, marque e-commerce premium de mode "
+                    "masculine (demande rythmée par le calendrier islamique : Ramadan, Aïd, saison "
+                    "des mariages, + Black Friday). À partir UNIQUEMENT des chiffres agrégés fournis "
+                    "(aucune donnée personnelle), rédige en français un résumé exécutif court : "
+                    "1) **Synthèse** (2-3 phrases) ; 2) **Points clés** (catégories et canaux qui "
+                    "portent le CA) ; 3) **À surveiller** (1-2 recommandations). N'invente aucun "
+                    "chiffre, n'utilise que ceux fournis."
+                )
+                st.markdown(llm.chat(sys, json.dumps(snap, ensure_ascii=False)))
+            except Exception as exc:
+                st.error(f"Échec de l'appel au modèle : {exc}")

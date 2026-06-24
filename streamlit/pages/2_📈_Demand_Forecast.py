@@ -4,10 +4,12 @@ J-90 history + J+30 forecast (with confidence band) per category, with Islamic
 calendar overlays drawn directly on the chart. Forecasts come from the FastAPI
 service (never the model directly).
 """
+import json
+
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import api_client, calendar_overlays, db
+from lib import api_client, calendar_overlays, db, insights, llm
 
 st.set_page_config(page_title="Demand Forecast", page_icon="📈", layout="wide")
 st.title("📈 Demand Forecast")
@@ -82,3 +84,27 @@ with right:
             st.caption("See ml/models/shap_summary.png for the full SHAP summary plot.")
         except Exception:
             st.caption("Model info unavailable.")
+
+# --- AI commentary on the forecast (optional LLM layer; aggregates only) --------
+st.divider()
+st.subheader("🪄 Commentaire IA sur la prévision")
+if not llm.is_enabled():
+    st.info("🔑 Active la clé LLM (`OPENAI_API_KEY` dans `.env`) pour un commentaire automatique.")
+else:
+    st.caption(f"Modèle : `{llm.OPENAI_MODEL}` · catégorie **{category}** · aucune PII.")
+    if st.button("Commenter cette prévision", type="primary"):
+        with st.spinner("Lecture de la courbe…"):
+            try:
+                snap = insights.forecast_snapshot(category, db.data_today(), horizon)
+                sys = (
+                    "Tu es analyste demande pour NOUREDDINE, marque e-commerce premium de mode "
+                    "masculine dont la demande suit le calendrier islamique (Ramadan, Aïd al-Fitr, "
+                    "Aïd al-Adha, saison des mariages) et les pics retail (Black Friday). À partir "
+                    "UNIQUEMENT des chiffres agrégés fournis pour la catégorie, explique en français "
+                    "et en 3-5 phrases : la tendance (historique 30j vs prévision), l'effet des "
+                    "événements calendaires dans l'horizon, et une recommandation opérationnelle. "
+                    "N'invente aucun chiffre."
+                )
+                st.markdown(llm.chat(sys, json.dumps(snap, ensure_ascii=False)))
+            except Exception as exc:
+                st.error(f"Échec de l'appel au modèle : {exc}")

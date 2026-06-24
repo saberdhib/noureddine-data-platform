@@ -77,29 +77,9 @@ def build_payload(rows: List[Dict], today_iso: str) -> str:
 
 
 def generate_briefing(rows: List[Dict], today_iso: str, *, model: str | None = None) -> str:
-    """Call OpenAI to produce the restock briefing. Raises AdvisorNotConfigured if no key."""
+    """Produce the restock briefing via the shared LLM core. Raises AdvisorNotConfigured if no key."""
+    from . import llm  # shared OpenAI-compatible client (OpenAI/DeepSeek/Grok/HF router)
     if not is_enabled():
         raise AdvisorNotConfigured("OPENAI_API_KEY n'est pas défini.")
-    from openai import OpenAI  # imported lazily so the page loads without the package
-
     payload = build_payload(rows, today_iso)
-    # reads OPENAI_API_KEY from the environment; OPENAI_BASE_URL lets you point at any
-    # OpenAI-compatible provider (DeepSeek: https://api.deepseek.com, xAI Grok:
-    # https://api.x.ai/v1, HF router: https://router.huggingface.co/v1). Unset -> OpenAI.
-    # HF_BILL_TO routes Hugging Face Inference-Providers billing to an org (X-HF-Bill-To
-    # header) — needed when the token has org-level (not user-level) inference permission.
-    _headers = {}
-    _bill_to = os.getenv("HF_BILL_TO")
-    if _bill_to:
-        _headers["X-HF-Bill-To"] = _bill_to
-    client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None,
-                    default_headers=_headers or None)
-    resp = client.chat.completions.create(
-        model=model or OPENAI_MODEL,
-        temperature=0.2,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": payload},
-        ],
-    )
-    return resp.choices[0].message.content
+    return llm.chat(SYSTEM_PROMPT, payload, model=model)
