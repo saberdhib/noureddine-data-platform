@@ -6,3 +6,4 @@ sqlalchemy>=2,<3
 psycopg2-binary>=2.9,<3
 requests>=2.31,<3
 openai>=1.0,<2          # optional — AI Advisor page only (ADR 0015)
+scikit-learn>=1.4,<2    # customer segmentation (RFM + KMeans), Segments clients page

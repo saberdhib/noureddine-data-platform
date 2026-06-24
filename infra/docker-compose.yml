@@ -228,6 +228,8 @@ services:
       MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change_me_minio}
       BRONZE_BUCKET: bronze
       CATCH_UP_INTERVAL_SECONDS: ${CATCH_UP_INTERVAL_SECONDS:-600}
+      # Realistic, heterogeneous customer base for segmentation/clustering.
+      SIM_N_CUSTOMERS: ${SIM_N_CUSTOMERS:-600}
     networks:
       - noureddine_net
 

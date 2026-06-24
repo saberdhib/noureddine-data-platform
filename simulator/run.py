@@ -24,6 +24,7 @@ Calendar dates are NEVER computed — they come from simulator/seasonality.py (C
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import random
 import time
@@ -69,6 +70,36 @@ CARRIERS = ["Colissimo", "Chronopost", "DHL", "DPD", "Mondial Relay"]
 PAY_STATUS = ["paid", "paid", "paid", "pending", "refunded"]
 ORD_STATUS = ["delivered", "shipped", "processing", "cancelled"]
 
+# Behavioural archetypes so the customer base is HETEROGENEOUS (enables real
+# RFM clustering downstream). order_weight drives purchase frequency; lines/qty
+# drive basket size (monetary); disc drives discount sensitivity. Assigned
+# deterministically per customer_id (stable across catch-up runs).
+ARCHETYPES = [
+    {"name": "vip",        "share": 0.07, "order_weight": 14.0, "lines": [3, 4, 5], "disc": [0, 0, 0, 0.10]},
+    {"name": "loyal",      "share": 0.18, "order_weight": 6.0,  "lines": [2, 3, 4], "disc": [0, 0, 0, 0.10, 0.15]},
+    {"name": "regular",    "share": 0.40, "order_weight": 2.0,  "lines": [1, 2, 3], "disc": [0, 0, 0, 0, 0.10]},
+    {"name": "occasional", "share": 0.25, "order_weight": 0.5,  "lines": [1, 1, 2], "disc": [0, 0, 0]},
+    {"name": "bargain",    "share": 0.10, "order_weight": 1.5,  "lines": [1, 2, 3], "disc": [0.15, 0.20, 0.25, 0.10]},
+]
+
+
+def _archetype(customer_id) -> dict:
+    """Deterministic archetype for a customer (stable across runs, no storage needed)."""
+    h = int(hashlib.md5(str(customer_id).encode()).hexdigest(), 16)
+    r = (h % 100000) / 100000.0
+    cum = 0.0
+    for a in ARCHETYPES:
+        cum += a["share"]
+        if r <= cum:
+            return a
+    return ARCHETYPES[-1]
+
+
+def _customer_weights(customers) -> np.ndarray:
+    """Normalised order-attribution weights (heavy-tailed: a few VIPs buy a lot)."""
+    w = np.array([_archetype(c)["order_weight"] for c in customers], dtype=float)
+    return w / w.sum()
+
 
 # ---------------------------------------------------------------------------
 # Reference data (calendar / customers / products / inventory)
@@ -104,11 +135,14 @@ def ensure_calendar_events(conn) -> None:
 
 def ensure_reference_actors(conn, cat_ids: dict):
     """Create customers/products/inventory once; reuse them on later runs."""
+    # Customers: top up to N_CUSTOMERS so a small Bloc-2 seed doesn't block a realistic,
+    # heterogeneous base (needed for customer segmentation/clustering).
     n_cust = conn.execute(text("SELECT COUNT(*) FROM oltp.customers")).scalar()
-    if n_cust == 0:
-        print(f"[bootstrap] generating {N_CUSTOMERS} customers, {N_PRODUCTS} products")
+    to_make = max(0, N_CUSTOMERS - n_cust)
+    if to_make > 0:
+        print(f"[bootstrap] generating {to_make} customers (target {N_CUSTOMERS}, had {n_cust})")
         customers = []
-        for _ in range(N_CUSTOMERS):
+        for _ in range(to_make):
             created = (fake.date_time_between(start_date="-3y", end_date="now")
                        if fake else datetime.now())
             customers.append({
@@ -128,6 +162,10 @@ def ensure_reference_actors(conn, cat_ids: dict):
             "(:customer_id,:email,:first_name,:last_name,:country,:city,:consent_marketing,"
             ":acquisition_source,:created_at,:updated_at)"), customers)
 
+    # Products + inventory: generated once if absent (independent of the customer count).
+    n_prod = conn.execute(text("SELECT COUNT(*) FROM oltp.products")).scalar()
+    if n_prod == 0:
+        print(f"[bootstrap] generating {N_PRODUCTS} products")
         products = []
         for i in range(N_PRODUCTS):
             cat_name, _ = random.choice(CATEGORIES)
@@ -182,6 +220,10 @@ def generate_slice(engine, s3, start_dt: datetime, end_dt: datetime, customers, 
     total_orders = 0
     by_day_bronze: dict[str, list] = {}
     hour = start_hour
+    # Heterogeneous customer behaviour: weight order attribution by archetype, and let
+    # the archetype drive basket size + discount sensitivity (gives clusterable RFM).
+    cust_weights = _customer_weights(customers)
+    arch_by_cust = {c: _archetype(c) for c in customers}
     with engine.begin() as conn:
         while hour <= end_hour:
             d = hour.date()
@@ -189,9 +231,10 @@ def generate_slice(engine, s3, start_dt: datetime, end_dt: datetime, customers, 
             n = np.random.poisson(max(0.0, expected))
             for i in range(int(n)):
                 oid = uuid.uuid5(NS, f"{hour:%Y%m%d%H}:{i}")
-                cust = random.choice(customers)
+                cust = customers[int(np.random.choice(len(customers), p=cust_weights))]
+                arch = arch_by_cust[cust]
                 ts = hour + timedelta(minutes=(i * 7) % 60, seconds=(i * 13) % 60)
-                n_lines = random.randint(1, 4)
+                n_lines = random.choice(arch["lines"])
                 total = 0.0
                 lines = []
                 for j in range(n_lines):
@@ -201,7 +244,7 @@ def generate_slice(engine, s3, start_dt: datetime, end_dt: datetime, customers, 
                     lt = round(unit * qty, 2)
                     total += lt
                     lines.append((uuid.uuid5(NS, f"{oid}:item:{j}"), oid, prod.product_id, qty, unit, lt))
-                discount = round(total * random.choice([0, 0, 0, 0.1, 0.15]), 2)
+                discount = round(total * random.choice(arch["disc"]), 2)
                 shipping = round(random.choice([0, 4.95, 6.95, 9.95]), 2)
                 channel = random.choice(CHANNELS)
                 conn.execute(text(
